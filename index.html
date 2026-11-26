@@ -1,0 +1,1898 @@
+<!DOCTYPE html>
+<html lang="it">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>PescaSpot Italia - Mappa Satellitare & Diario Catture</title>
+
+    <!-- Google Font: Inter -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+
+    <!-- Leaflet CSS -->
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" crossorigin=""/>
+
+    <!-- Lucide Icons -->
+    <script src="https://unpkg.com/lucide@latest"></script>
+
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    fontFamily: {
+                        sans: ['Inter', 'sans-serif'],
+                    },
+                    colors: {
+                        nautical: {
+                            950: '#041222',
+                            900: '#071e36',
+                            800: '#0c2f52',
+                            700: '#124373',
+                        },
+                        coral: {
+                            500: '#f97316',
+                            600: '#ea580c',
+                        }
+                    }
+                }
+            }
+        }
+    </script>
+
+    <style>
+        html, body {
+            height: 100%;
+            width: 100%;
+            max-width: 100%;
+            margin: 0;
+            padding: 0;
+            overflow-x: hidden;
+            font-family: 'Inter', sans-serif;
+        }
+        #map {
+            height: 100%;
+            width: 100%;
+            z-index: 1;
+        }
+        .custom-scrollbar::-webkit-scrollbar {
+            width: 6px;
+        }
+        .custom-scrollbar::-webkit-scrollbar-track {
+            background: #f1f5f9;
+        }
+        .custom-scrollbar::-webkit-scrollbar-thumb {
+            background: #cbd5e1;
+            border-radius: 9999px;
+        }
+        .custom-scrollbar::-webkit-scrollbar-thumb:hover {
+            background: #94a3b8;
+        }
+        .leaflet-popup-content-wrapper {
+            border-radius: 14px;
+            padding: 0;
+            overflow: hidden;
+            box-shadow: 0 12px 28px -6px rgba(4, 18, 34, 0.28);
+        }
+        .leaflet-popup-content {
+            margin: 0;
+            width: 260px !important;
+        }
+        .spot-marker {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            border-radius: 9999px;
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.35);
+            color: #ffffff;
+            transition: transform 0.15s ease;
+        }
+        .spot-marker:hover {
+            transform: scale(1.12);
+        }
+        .cluster-marker {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            border-radius: 9999px;
+            border: 3px solid #ffffff;
+            box-shadow: 0 6px 16px rgba(4, 18, 34, 0.45);
+            color: #ffffff;
+            font-weight: 800;
+            font-size: 13px;
+            position: relative;
+            cursor: pointer;
+            transition: transform 0.15s ease;
+        }
+        .cluster-marker:hover {
+            transform: scale(1.1);
+        }
+        .cluster-mine-badge {
+            position: absolute;
+            top: -3px;
+            right: -3px;
+            width: 12px;
+            height: 12px;
+            border-radius: 9999px;
+            background: #f97316;
+            border: 2px solid #ffffff;
+        }
+    </style>
+</head>
+<body class="bg-slate-100 text-slate-800 antialiased selection:bg-blue-600 selection:text-white">
+
+    <div class="h-full w-full max-w-full flex flex-col overflow-hidden">
+
+        <!-- TOP NAVBAR (z-30) -->
+        <header class="h-16 w-full max-w-full bg-nautical-950 text-white px-2.5 sm:px-5 flex items-center justify-between gap-2 border-b border-nautical-800 shadow-lg z-30 shrink-0">
+            <div class="flex items-center gap-2 min-w-0">
+                <!-- Mobile Hamburger Toggle -->
+                <button type="button" onclick="toggleSidebar()" aria-label="Apri menu" class="lg:hidden p-2.5 rounded-xl bg-nautical-900 hover:bg-nautical-800 text-slate-200 transition shrink-0">
+                    <i data-lucide="menu" class="w-5 h-5"></i>
+                </button>
+
+                <!-- Brand Logo & Full Title on single line -->
+                <div class="flex items-center gap-2.5 min-w-0">
+                    <div class="w-9 h-9 rounded-xl bg-gradient-to-br from-blue-500 to-emerald-500 flex items-center justify-center shadow-md shrink-0">
+                        <i data-lucide="fish" class="w-5 h-5 text-white"></i>
+                    </div>
+                    <div class="min-w-0">
+                        <h1 class="font-extrabold text-sm sm:text-xl tracking-tight leading-none whitespace-nowrap">
+                            PescaSpot <span class="text-sky-400">Italia</span>
+                        </h1>
+                        <p class="text-[11px] text-slate-300 hidden sm:block truncate mt-0.5">Mappa Satellitare & Diario Catture</p>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Desktop Quick Stats -->
+            <div class="hidden md:flex items-center gap-5 text-xs bg-nautical-900/90 px-4 py-2 rounded-full border border-nautical-800 shrink-0">
+                <div class="flex items-center gap-2">
+                    <i data-lucide="fish" class="w-4 h-4 text-sky-400"></i>
+                    <span class="text-slate-400">Catture:</span>
+                    <strong id="statTotalCatches" class="text-white font-bold text-sm">0</strong>
+                </div>
+                <div class="h-4 w-px bg-nautical-700"></div>
+                <div class="flex items-center gap-2">
+                    <i data-lucide="map-pin" class="w-4 h-4 text-coral-500"></i>
+                    <span class="text-slate-400">Spot (200m):</span>
+                    <strong id="statUniqueSpots" class="text-white font-bold text-sm">0</strong>
+                </div>
+            </div>
+
+            <!-- Two-line Compact Add Capture Button -->
+            <div class="flex items-center shrink-0">
+                <button type="button" onclick="openAddModal()" class="px-3 py-1.5 sm:px-4 sm:py-1.5 rounded-xl bg-gradient-to-r from-coral-500 to-orange-600 hover:from-coral-600 hover:to-orange-700 text-white font-semibold text-[11px] sm:text-xs leading-tight flex flex-col items-center justify-center shadow-md transition transform active:scale-95 text-center">
+                    <span class="flex items-center gap-1 font-medium"><i data-lucide="plus" class="w-3 h-3"></i><span>Aggiungi</span></span>
+                    <span class="font-extrabold">Cattura</span>
+                </button>
+            </div>
+        </header>
+
+        <!-- MAIN WORKSPACE -->
+        <div class="flex-1 flex relative w-full max-w-full overflow-hidden">
+
+            <!-- LEFT SIDEBAR (z-40 on mobile) -->
+            <aside id="sidebarPanel" class="fixed inset-y-0 left-0 top-16 lg:static w-full sm:w-96 max-w-full bg-white border-r border-slate-200 z-40 flex flex-col transform -translate-x-full lg:translate-x-0 transition-transform duration-300 ease-in-out shadow-2xl lg:shadow-none">
+
+                <!-- Default Region Row -->
+                <div class="px-3.5 py-2.5 bg-nautical-900 text-white border-b border-nautical-800 flex items-center justify-between gap-2 shrink-0">
+                    <div class="flex items-center gap-2 min-w-0 text-xs">
+                        <i data-lucide="settings" class="w-3.5 h-3.5 text-sky-400 shrink-0"></i>
+                        <span class="text-slate-300 shrink-0">Regione di default:</span>
+                        <strong id="headerDefaultRegionLabel" class="text-sky-300 truncate">Tutta Italia</strong>
+                    </div>
+                    <button type="button" onclick="openSettingsModal()" class="px-2.5 py-1 rounded-lg bg-nautical-800 hover:bg-nautical-700 text-sky-200 text-[11px] font-semibold border border-nautical-700 transition shrink-0">
+                        Imposta
+                    </button>
+                </div>
+
+                <!-- Ownership Scope Switcher: Tutte le catture vs Solo le mie -->
+                <div class="p-3 bg-slate-100 border-b border-slate-200 shrink-0">
+                    <div class="grid grid-cols-2 gap-1.5 bg-slate-200/80 p-1 rounded-2xl">
+                        <button type="button" id="scopeAllBtn" onclick="setOwnershipFilter('ALL')" class="py-2 px-2.5 rounded-xl text-xs font-bold bg-nautical-900 text-white shadow-sm transition flex items-center justify-center gap-1.5">
+                            <i data-lucide="users" class="w-3.5 h-3.5"></i>
+                            <span>Tutte le catture</span>
+                        </button>
+                        <button type="button" id="scopeMineBtn" onclick="setOwnershipFilter('MINE')" class="py-2 px-2.5 rounded-xl text-xs font-semibold text-slate-600 hover:text-slate-900 transition flex items-center justify-center gap-1.5">
+                            <i data-lucide="user-check" class="w-3.5 h-3.5"></i>
+                            <span>Solo le mie</span>
+                        </button>
+                    </div>
+                </div>
+
+                <!-- Filters Section -->
+                <div class="p-3.5 border-b border-slate-200 bg-white space-y-2.5 shrink-0">
+                    <div class="flex items-center justify-between">
+                        <span class="text-xs font-bold uppercase tracking-wider text-slate-500 flex items-center gap-1.5">
+                            <i data-lucide="sliders-horizontal" class="w-3.5 h-3.5 text-blue-600"></i> Filtri Diario
+                        </span>
+                        <button type="button" onclick="resetFilters()" class="text-xs text-blue-600 hover:text-blue-700 font-semibold">
+                            Resetta filtri
+                        </button>
+                    </div>
+
+                    <div class="grid grid-cols-2 gap-2">
+                        <select id="filterRegion" onchange="handleRegionFilterChange()" class="w-full px-2.5 py-2 text-xs bg-slate-50 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500">
+                            <option value="ALL">Tutte le regioni</option>
+                        </select>
+
+                        <select id="filterEnvironment" onchange="applyFilters()" class="w-full px-2.5 py-2 text-xs bg-slate-50 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500">
+                            <option value="ALL">Tutti gli ambienti</option>
+                            <option value="Mare">Mare</option>
+                            <option value="Acque Interne">Acque Interne</option>
+                        </select>
+                    </div>
+
+                    <select id="filterTechnique" onchange="applyFilters()" class="w-full px-2.5 py-2 text-xs bg-slate-50 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500">
+                        <option value="ALL">Tutte le tecniche</option>
+                        <option value="Spinning">Spinning</option>
+                        <option value="Surfcasting">Surfcasting</option>
+                        <option value="Bolognese">Bolognese</option>
+                        <option value="English / Match">English / Match</option>
+                        <option value="Ledgering / Feeder">Ledgering / Feeder</option>
+                        <option value="Traina">Traina</option>
+                        <option value="Eging / Calamari">Eging / Calamari</option>
+                        <option value="Mosca">Mosca</option>
+                        <option value="Altro">Altro</option>
+                    </select>
+
+                    <!-- Filtered Counter -->
+                    <div class="flex items-center justify-between pt-1 text-[11px] text-slate-500">
+                        <span id="filteredCounterLabel" class="font-medium">Mostrate 0 di 0 catture</span>
+                        <span class="text-slate-400">Ordine: peso decrescente</span>
+                    </div>
+                </div>
+
+                <!-- Catch Feed List -->
+                <div id="catchListContainer" class="flex-1 overflow-y-auto custom-scrollbar p-3.5 space-y-3 bg-slate-50/70"></div>
+            </aside>
+
+            <!-- RIGHT MAP CANVAS -->
+            <main class="flex-1 relative h-full w-full max-w-full bg-slate-200 overflow-hidden">
+                <div id="map"></div>
+
+                <!-- Top-Left Map Controls (z-20, always below sidebar z-40 and modals z-50) -->
+                <div id="mapTopControls" class="absolute top-3 left-3 right-3 sm:right-auto sm:w-96 z-20 flex flex-col gap-2 pointer-events-none transition-opacity duration-200">
+
+                    <!-- Location Search Bar -->
+                    <div class="relative pointer-events-auto">
+                        <div class="bg-white/95 backdrop-blur-md rounded-2xl shadow-lg border border-slate-200/80 flex items-center px-3 py-2 gap-2">
+                            <i data-lucide="search" class="w-4 h-4 text-blue-600 shrink-0"></i>
+                            <input id="mapLocationInput" type="text" oninput="handleLocationSearchInput()" placeholder="Cerca località, porto, fiume o lago..." class="w-full text-xs bg-transparent text-slate-800 placeholder-slate-400 focus:outline-none">
+                            <button id="clearLocationBtn" type="button" onclick="clearLocationSearch()" class="hidden text-slate-400 hover:text-slate-600 text-xs p-1">
+                                <i data-lucide="x" class="w-3.5 h-3.5"></i>
+                            </button>
+                        </div>
+                        <div id="locationSearchResults" class="hidden mt-1.5 bg-white/98 backdrop-blur-md rounded-2xl shadow-xl border border-slate-200 overflow-hidden max-h-60 overflow-y-auto custom-scrollbar"></div>
+                    </div>
+
+                    <!-- Map Layer + GPS + Legend (temporarily hidden while typing in search) -->
+                    <div id="mapLayerControlsWrapper" class="flex flex-wrap items-center gap-2 pointer-events-auto">
+                        <div class="bg-white/95 backdrop-blur-md p-1 rounded-2xl shadow-lg border border-slate-200/80 flex items-center gap-1">
+                            <button type="button" onclick="setMapLayer('hybrid')" id="layer-hybrid" class="layer-btn px-3 py-1.5 rounded-xl text-xs font-semibold bg-nautical-900 text-white shadow-sm transition flex items-center gap-1.5">
+                                <i data-lucide="satellite" class="w-3.5 h-3.5"></i> Satellitare
+                            </button>
+                            <button type="button" onclick="setMapLayer('street')" id="layer-street" class="layer-btn px-3 py-1.5 rounded-xl text-xs font-semibold text-slate-700 hover:bg-slate-100 transition flex items-center gap-1.5">
+                                <i data-lucide="map" class="w-3.5 h-3.5"></i> Mappa
+                            </button>
+                            <button type="button" onclick="locateUser()" title="Usa la mia posizione GPS" class="px-2.5 py-1.5 rounded-xl text-xs font-semibold text-blue-700 hover:bg-blue-50 transition flex items-center justify-center border-l border-slate-200 ml-0.5">
+                                <i data-lucide="locate-fixed" class="w-4 h-4"></i>
+                            </button>
+                        </div>
+
+                        <div class="bg-white/95 backdrop-blur-md px-3 py-2 rounded-2xl shadow-lg border border-slate-200/80 flex items-center gap-3 text-[11px] font-medium text-slate-700">
+                            <span class="flex items-center gap-1.5">
+                                <span class="w-2.5 h-2.5 rounded-full bg-blue-600 inline-block"></span> Mare
+                            </span>
+                            <span class="flex items-center gap-1.5">
+                                <span class="w-2.5 h-2.5 rounded-full bg-emerald-600 inline-block"></span> Acque Interne
+                            </span>
+                            <span class="hidden sm:flex items-center gap-1 text-slate-500 border-l border-slate-200 pl-2">
+                                <i data-lucide="hand" class="w-3 h-3 text-coral-500"></i> Tieni premuto per pin
+                            </span>
+                        </div>
+                    </div>
+                </div>
+            </main>
+        </div>
+    </div>
+
+    <!-- MODAL (z-50): CLASSIFICA DELLO SPOT (CLUSTER 200M) -->
+    <div id="spotRankingModal" class="fixed inset-0 z-50 hidden bg-nautical-950/75 backdrop-blur-sm flex items-center justify-center p-3 sm:p-5 overflow-y-auto">
+        <div id="spotRankingContent" class="bg-white w-full max-w-xl rounded-3xl shadow-2xl border border-slate-200 overflow-hidden my-auto max-h-[92vh] flex flex-col"></div>
+    </div>
+
+    <!-- MODAL (z-50): AGGIUNGI CATTURA -->
+    <div id="catchModal" class="fixed inset-0 z-50 hidden bg-nautical-950/75 backdrop-blur-sm flex items-center justify-center p-3 sm:p-5 overflow-y-auto">
+        <div class="bg-white w-full max-w-2xl rounded-3xl shadow-2xl border border-slate-200 overflow-hidden my-auto max-h-[92vh] flex flex-col">
+            <div class="px-5 py-4 bg-nautical-950 text-white flex items-center justify-between shrink-0">
+                <div class="flex items-center gap-2.5">
+                    <div class="w-9 h-9 rounded-xl bg-coral-500/20 text-coral-400 flex items-center justify-center">
+                        <i data-lucide="fish" class="w-5 h-5"></i>
+                    </div>
+                    <div>
+                        <h2 class="font-bold text-base sm:text-lg">Nuova Cattura</h2>
+                        <p class="text-xs text-slate-400">Le coordinate esatte restano salvate sulla tua cattura</p>
+                    </div>
+                </div>
+                <button type="button" onclick="closeAddModal()" class="w-8 h-8 rounded-lg hover:bg-nautical-800 text-slate-400 hover:text-white flex items-center justify-center transition">
+                    <i data-lucide="x" class="w-5 h-5"></i>
+                </button>
+            </div>
+
+            <form id="catchForm" onsubmit="saveCatch(event)" class="p-5 overflow-y-auto custom-scrollbar space-y-5">
+                <!-- SEZIONE 1: POSIZIONE & AMBIENTE -->
+                <div class="space-y-3">
+                    <div class="flex items-center justify-between gap-2">
+                        <h3 class="text-xs font-bold uppercase tracking-wider text-blue-700 flex items-center gap-1.5">
+                            <span class="w-5 h-5 rounded-full bg-blue-100 text-blue-700 flex items-center justify-center text-[11px] font-bold">1</span>
+                            Posizione & Ambiente
+                        </h3>
+                        <button type="button" onclick="useMapCenterCoords()" class="text-xs font-semibold text-blue-600 hover:text-blue-700 flex items-center gap-1 bg-blue-50 px-2.5 py-1 rounded-xl border border-blue-200/70 transition">
+                            <i data-lucide="crosshair" class="w-3.5 h-3.5"></i> Usa centro mappa
+                        </button>
+                    </div>
+
+                    <div class="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                        <div>
+                            <label class="block text-xs font-semibold text-slate-700 mb-1">Nome Spot / Località *</label>
+                            <input id="spotName" type="text" required placeholder="Es. Molo di Ponente - Riva Trigoso" class="w-full px-3 py-2 text-xs bg-slate-50 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 focus:bg-white">
+                        </div>
+                        <div>
+                            <label class="block text-xs font-semibold text-slate-700 mb-1">Regione *</label>
+                            <select id="spotRegion" required class="w-full px-3 py-2 text-xs bg-slate-50 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 focus:bg-white"></select>
+                        </div>
+                        <div>
+                            <label class="block text-xs font-semibold text-slate-700 mb-1">Ambiente *</label>
+                            <select id="environment" onchange="updateSeaConditionOptions()" class="w-full px-3 py-2 text-xs bg-slate-50 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 focus:bg-white">
+                                <option value="Mare">Mare</option>
+                                <option value="Acque Interne">Acque Interne</option>
+                            </select>
+                        </div>
+                    </div>
+
+                    <div class="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                        <div>
+                            <label class="block text-xs font-semibold text-slate-700 mb-1">Latitudine *</label>
+                            <input id="lat" type="number" step="any" required placeholder="44.27350" class="w-full px-3 py-2 text-xs bg-slate-50 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 focus:bg-white">
+                        </div>
+                        <div>
+                            <label class="block text-xs font-semibold text-slate-700 mb-1">Longitudine *</label>
+                            <input id="lng" type="number" step="any" required placeholder="9.37680" class="w-full px-3 py-2 text-xs bg-slate-50 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 focus:bg-white">
+                        </div>
+                        <div>
+                            <label class="block text-xs font-semibold text-slate-700 mb-1">Stato mare / condizioni acqua</label>
+                            <select id="seaCondition" class="w-full px-3 py-2 text-xs bg-slate-50 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 focus:bg-white"></select>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- SEZIONE 2: DETTAGLI CATTURA & FOTO -->
+                <div class="space-y-3 pt-3 border-t border-slate-100">
+                    <h3 class="text-xs font-bold uppercase tracking-wider text-blue-700 flex items-center gap-1.5">
+                        <span class="w-5 h-5 rounded-full bg-blue-100 text-blue-700 flex items-center justify-center text-[11px] font-bold">2</span>
+                        Dettagli Cattura & Foto
+                    </h3>
+
+                    <div class="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                        <div>
+                            <label class="block text-xs font-semibold text-slate-700 mb-1">Specie / Preda *</label>
+                            <input id="species" type="text" required placeholder="Es. Spigola, Serra, Luccio..." class="w-full px-3 py-2 text-xs bg-slate-50 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 focus:bg-white">
+                        </div>
+                        <div>
+                            <label class="block text-xs font-semibold text-slate-700 mb-1">Peso (kg)</label>
+                            <input id="weight" type="number" step="0.01" min="0" placeholder="1.85" class="w-full px-3 py-2 text-xs bg-slate-50 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 focus:bg-white">
+                        </div>
+                        <div>
+                            <label class="block text-xs font-semibold text-slate-700 mb-1">Data e Ora</label>
+                            <input id="catchDate" type="datetime-local" class="w-full px-3 py-2 text-xs bg-slate-50 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 focus:bg-white">
+                        </div>
+                    </div>
+
+                    <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                        <div>
+                            <label class="block text-xs font-semibold text-slate-700 mb-1">Tecnica di Pesca *</label>
+                            <select id="technique" required class="w-full px-3 py-2 text-xs bg-slate-50 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 focus:bg-white">
+                                <option value="Spinning">Spinning</option>
+                                <option value="Surfcasting">Surfcasting</option>
+                                <option value="Bolognese">Bolognese</option>
+                                <option value="English / Match">English / Match</option>
+                                <option value="Ledgering / Feeder">Ledgering / Feeder</option>
+                                <option value="Traina">Traina</option>
+                                <option value="Eging / Calamari">Eging / Calamari</option>
+                                <option value="Mosca">Mosca</option>
+                                <option value="Altro">Altro</option>
+                            </select>
+                        </div>
+                        <div>
+                            <label class="block text-xs font-semibold text-slate-700 mb-1">Esca / Artificiale *</label>
+                            <input id="lure" type="text" required placeholder="Es. Minnow 120mm sardina, Bibi..." class="w-full px-3 py-2 text-xs bg-slate-50 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 focus:bg-white">
+                        </div>
+                    </div>
+
+                    <div>
+                        <label class="block text-xs font-semibold text-slate-700 mb-1">Note su montatura, recupero o spot</label>
+                        <textarea id="notes" rows="2" placeholder="Es. Terminale fluorocarbon 0.35mm, recupero lento vicino alla schiuma..." class="w-full px-3 py-2 text-xs bg-slate-50 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 focus:bg-white"></textarea>
+                    </div>
+
+                    <!-- Photo Upload -->
+                    <div>
+                        <label class="block text-xs font-semibold text-slate-700 mb-1">Foto Cattura</label>
+                        <div class="flex items-center gap-3">
+                            <label class="flex-1 cursor-pointer flex items-center justify-center gap-2 px-4 py-3 border-2 border-dashed border-slate-300 hover:border-blue-500 rounded-2xl bg-slate-50 hover:bg-blue-50/40 transition text-xs text-slate-600 font-medium">
+                                <i data-lucide="camera" class="w-4 h-4 text-blue-600"></i>
+                                <span id="photoFileName">Carica o scatta una foto</span>
+                                <input id="photoInput" type="file" accept="image/*" onchange="handlePhotoUpload(event)" class="hidden">
+                            </label>
+                            <div id="photoPreviewBox" class="hidden relative w-16 h-16 rounded-xl overflow-hidden border border-slate-200 shrink-0">
+                                <img id="photoPreviewImg" src="" alt="Anteprima" class="w-full h-full object-cover">
+                                <button type="button" onclick="clearPhoto()" class="absolute top-0.5 right-0.5 w-5 h-5 rounded-full bg-red-600 text-white text-[10px] flex items-center justify-center">
+                                    <i data-lucide="x" class="w-3 h-3"></i>
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="pt-3 border-t border-slate-200 flex items-center justify-end gap-2.5">
+                    <button type="button" onclick="closeAddModal()" class="px-4 py-2.5 rounded-xl text-xs font-semibold text-slate-600 hover:bg-slate-100 transition">
+                        Annulla
+                    </button>
+                    <button type="submit" class="px-5 py-2.5 rounded-xl text-xs font-bold bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-white shadow-md transition flex items-center gap-1.5">
+                        <i data-lucide="check" class="w-4 h-4"></i> Salva Cattura
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- MODAL (z-50): DETTAGLIO CATTURA -->
+    <div id="detailModal" class="fixed inset-0 z-50 hidden bg-nautical-950/75 backdrop-blur-sm flex items-center justify-center p-3 sm:p-5 overflow-y-auto">
+        <div id="detailModalContent" class="bg-white w-full max-w-xl rounded-3xl shadow-2xl border border-slate-200 overflow-hidden my-auto max-h-[92vh] flex flex-col"></div>
+    </div>
+
+    <!-- MODAL (z-50): REGIONE DI DEFAULT -->
+    <div id="settingsModal" class="fixed inset-0 z-50 hidden bg-nautical-950/75 backdrop-blur-sm flex items-center justify-center p-4">
+        <div class="bg-white w-full max-w-md rounded-3xl shadow-2xl border border-slate-200 overflow-hidden">
+            <div class="px-5 py-4 bg-nautical-950 text-white flex items-center justify-between">
+                <div class="flex items-center gap-2">
+                    <i data-lucide="settings" class="w-4 h-4 text-sky-400"></i>
+                    <h2 class="font-bold text-base">Regione di Default</h2>
+                </div>
+                <button type="button" onclick="closeSettingsModal()" class="w-8 h-8 rounded-lg hover:bg-nautical-800 text-slate-400 hover:text-white flex items-center justify-center transition">
+                    <i data-lucide="x" class="w-5 h-5"></i>
+                </button>
+            </div>
+            <div class="p-5 space-y-4">
+                <p class="text-xs text-slate-600 leading-relaxed">
+                    Scegli la regione da caricare automaticamente all'apertura dell'app o quando premi <strong>Resetta filtri</strong>.
+                </p>
+                <div>
+                    <label class="block text-xs font-semibold text-slate-700 mb-1.5">Regione predefinita</label>
+                    <select id="defaultRegionSelect" class="w-full px-3 py-2.5 text-xs bg-slate-50 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500"></select>
+                </div>
+                <div class="flex items-center justify-end gap-2 pt-2">
+                    <button type="button" onclick="closeSettingsModal()" class="px-4 py-2 rounded-xl text-xs font-semibold text-slate-600 hover:bg-slate-100 transition">
+                        Chiudi
+                    </button>
+                    <button type="button" onclick="saveDefaultRegionFromModal()" class="px-4 py-2 rounded-xl text-xs font-bold bg-blue-600 hover:bg-blue-700 text-white transition">
+                        Salva preferenza
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- TOAST NOTIFICATION (z-50) -->
+    <div id="toast" class="fixed bottom-5 right-5 left-5 sm:left-auto sm:max-w-md z-50 hidden bg-nautical-950 text-white px-4 py-3 rounded-2xl shadow-xl border border-nautical-700 flex items-center gap-2.5 text-xs font-medium">
+        <i id="toastIcon" data-lucide="check-circle-2" class="w-4 h-4 text-sky-400 shrink-0"></i>
+        <span id="toastMessage" class="leading-snug">Operazione completata</span>
+    </div>
+
+    <!-- Leaflet JS -->
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" crossorigin=""></script>
+
+    <script>
+        const ITALIAN_REGIONS = [
+            "Abruzzo", "Basilicata", "Calabria", "Campania", "Emilia-Romagna",
+            "Friuli-Venezia Giulia", "Lazio", "Liguria", "Lombardia", "Marche",
+            "Molise", "Piemonte", "Puglia", "Sardegna", "Sicilia",
+            "Toscana", "Trentino-Alto Adige", "Umbria", "Valle d'Aosta", "Veneto"
+        ];
+
+        const REGION_CENTERS = {
+            "Abruzzo": [42.19, 13.72, 9],
+            "Basilicata": [40.50, 16.08, 9],
+            "Calabria": [39.01, 16.34, 9],
+            "Campania": [40.78, 14.55, 9],
+            "Emilia-Romagna": [44.49, 11.34, 9],
+            "Friuli-Venezia Giulia": [46.07, 13.23, 9],
+            "Lazio": [41.89, 12.49, 9],
+            "Liguria": [44.31, 8.48, 9],
+            "Lombardia": [45.66, 9.95, 9],
+            "Marche": [43.55, 13.25, 9],
+            "Molise": [41.67, 14.66, 9],
+            "Piemonte": [45.07, 7.68, 9],
+            "Puglia": [40.95, 17.10, 9],
+            "Sardegna": [40.12, 9.01, 8],
+            "Sicilia": [37.55, 14.27, 8],
+            "Toscana": [43.45, 11.15, 9],
+            "Trentino-Alto Adige": [46.49, 11.35, 9],
+            "Umbria": [42.93, 12.56, 9],
+            "Valle d'Aosta": [45.73, 7.32, 10],
+            "Veneto": [45.44, 11.88, 9]
+        };
+
+        const SEA_CONDITIONS = [
+            "Calmo / Olio",
+            "Quasi calmo (increspato)",
+            "Poco mosso",
+            "Mosso",
+            "Molto mosso / Onda formata",
+            "Agitato / Schiuma da mareggiata",
+            "Correnti forti / Caduta"
+        ];
+
+        const INLAND_CONDITIONS = [
+            "Acqua ferma / Specchio",
+            "Leggera increspatura da vento",
+            "Corrente regolare / Limpida",
+            "Corrente sostenuta",
+            "Acqua velata / Leggermente torbida",
+            "Acqua torbida / In piena"
+        ];
+
+        const STORAGE_KEY = 'pescaspot_italia_catches_v3';
+        const DEFAULT_REGION_KEY = 'pescaspot_default_region_v1';
+        const CLUSTER_RADIUS_METERS = 200;
+        const UNCLUSTER_ZOOM_LEVEL = 15;
+
+        const INITIAL_CATCHES = [
+            {
+                id: 'comm-1',
+                isMine: false,
+                author: 'Marco R.',
+                spotName: 'Molo di Ponente - Riva Trigoso',
+                region: 'Liguria',
+                environment: 'Mare',
+                lat: 44.27385,
+                lng: 9.37715,
+                species: 'Pesce Serra',
+                catchDate: '2025-05-11T19:40',
+                weight: 2.65,
+                seaCondition: 'Mosso',
+                technique: 'Spinning',
+                lure: 'Popper 110mm bianco testa rossa',
+                notes: 'Attacco esplosivo in superficie sulla punta del molo al tramonto.',
+                photo: ''
+            },
+            {
+                id: 'mine-1',
+                isMine: true,
+                author: 'Tu',
+                spotName: 'Molo di Ponente - Riva Trigoso',
+                region: 'Liguria',
+                environment: 'Mare',
+                lat: 44.27350,
+                lng: 9.37680,
+                species: 'Spigola',
+                catchDate: '2025-05-10T06:15',
+                weight: 1.85,
+                seaCondition: 'Poco mosso',
+                technique: 'Spinning',
+                lure: 'Minnow 120mm livrea sardina',
+                notes: 'Catturata all\'alba tra due frangenti con recupero lento a pause.',
+                photo: ''
+            },
+            {
+                id: 'comm-2',
+                isMine: false,
+                author: 'Luca B.',
+                spotName: 'Molo di Ponente - Riva Trigoso',
+                region: 'Liguria',
+                environment: 'Mare',
+                lat: 44.27320,
+                lng: 9.37640,
+                species: 'Sarago Maggiore',
+                catchDate: '2025-05-09T07:20',
+                weight: 0.95,
+                seaCondition: 'Mosso',
+                technique: 'Bolognese',
+                lure: 'Gamberetto vivo',
+                notes: 'Nella schiuma sottoriva a 60 metri dalla punta.',
+                photo: ''
+            },
+            {
+                id: 'comm-5',
+                isMine: false,
+                author: 'Stefano P.',
+                spotName: 'Molo di Ponente - Riva Trigoso',
+                region: 'Liguria',
+                environment: 'Mare',
+                lat: 44.27415,
+                lng: 9.37745,
+                species: 'Barracuda Mediterraneo',
+                catchDate: '2025-05-08T21:10',
+                weight: 1.40,
+                seaCondition: 'Quasi calmo (increspato)',
+                technique: 'Spinning',
+                lure: 'Long Jerk 175mm bianco perlato',
+                notes: 'Preso in notturna con recupero lineare lentissimo.',
+                photo: ''
+            },
+            {
+                id: 'comm-3',
+                isMine: false,
+                author: 'Andrea V.',
+                spotName: 'Lago di Bolsena - Punta Nord',
+                region: 'Lazio',
+                environment: 'Acque Interne',
+                lat: 42.64260,
+                lng: 11.98500,
+                species: 'Luccio',
+                catchDate: '2025-05-07T09:15',
+                weight: 3.40,
+                seaCondition: 'Acqua ferma / Specchio',
+                technique: 'Spinning',
+                lure: 'Jerkbait 140mm livrea persico',
+                notes: 'Preso lungo il gradino dell\'erbaio a circa 90 metri dalla riva.',
+                photo: ''
+            },
+            {
+                id: 'mine-2',
+                isMine: true,
+                author: 'Tu',
+                spotName: 'Lago di Bolsena - Punta Nord',
+                region: 'Lazio',
+                environment: 'Acque Interne',
+                lat: 42.64210,
+                lng: 11.98450,
+                species: 'Persico Reale',
+                catchDate: '2025-05-08T17:30',
+                weight: 0.82,
+                seaCondition: 'Leggera increspatura da vento',
+                technique: 'Spinning',
+                lure: 'Softbait Shad 7.5cm verde/glitter',
+                notes: 'Fondale misto sassi ed erbai a circa 6 metri di profondità.',
+                photo: ''
+            },
+            {
+                id: 'comm-6',
+                isMine: false,
+                author: 'Giulia T.',
+                spotName: 'Lago di Bolsena - Punta Nord',
+                region: 'Lazio',
+                environment: 'Acque Interne',
+                lat: 42.64235,
+                lng: 11.98480,
+                species: 'Black Bass',
+                catchDate: '2025-05-06T18:05',
+                weight: 1.55,
+                seaCondition: 'Acqua ferma / Specchio',
+                technique: 'Spinning',
+                lure: 'Creature bait Texas rig',
+                notes: 'Lancio preciso a ridosso del canneto.',
+                photo: ''
+            },
+            {
+                id: 'mine-3',
+                isMine: true,
+                author: 'Tu',
+                spotName: 'Spiaggia di Torre Lapillo',
+                region: 'Puglia',
+                environment: 'Mare',
+                lat: 40.29420,
+                lng: 17.84560,
+                species: 'Orata',
+                catchDate: '2025-05-05T21:10',
+                weight: 1.25,
+                seaCondition: 'Quasi calmo (increspato)',
+                technique: 'Surfcasting',
+                lure: 'Americano + Bibi di mare',
+                notes: 'Lancio oltre il primo gradino di sabbia con leggera brezza di terra.',
+                photo: ''
+            }
+        ];
+
+        let map;
+        let hybridLayer;
+        let streetLayer;
+        let markersLayer;
+        let catches = [];
+        let ownershipFilter = 'ALL';
+        let currentPhotoBase64 = '';
+        let longPressMarker = null;
+        let longPressTimer = null;
+        let longPressStartPoint = null;
+        let locationSearchTimer = null;
+        let activeClustersMap = {};
+
+        function refreshIcons() {
+            if (window.lucide && typeof window.lucide.createIcons === 'function') {
+                window.lucide.createIcons();
+            }
+        }
+
+        // Haversine distance in meters between two coordinate pairs
+        function distanceMeters(lat1, lng1, lat2, lng2) {
+            const R = 6371000;
+            const toRad = (deg) => (deg * Math.PI) / 180;
+            const dLat = toRad(lat2 - lat1);
+            const dLng = toRad(lng2 - lng1);
+            const a =
+                Math.sin(dLat / 2) * Math.sin(dLat / 2) +
+                Math.cos(toRad(lat1)) * Math.cos(toRad(lat2)) *
+                Math.sin(dLng / 2) * Math.sin(dLng / 2);
+            const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+            return R * c;
+        }
+
+        // Format weight nicely in kg or grams
+        function formatWeight(weight) {
+            if (weight === null || weight === undefined || Number.isNaN(Number(weight))) return '';
+            const w = Number(weight);
+            if (w <= 0) return '';
+            if (w < 1) {
+                return `${w.toFixed(2)} kg (${Math.round(w * 1000)} g)`;
+            }
+            return `${w.toFixed(2)} kg`;
+        }
+
+        // Find nearest Italian region from coordinates
+        function detectClosestRegion(lat, lng) {
+            let closest = 'Liguria';
+            let minDist = Infinity;
+            for (const [reg, coords] of Object.entries(REGION_CENTERS)) {
+                const d = distanceMeters(lat, lng, coords[0], coords[1]);
+                if (d < minDist) {
+                    minDist = d;
+                    closest = reg;
+                }
+            }
+            return closest;
+        }
+
+        // Group catches within 200m of each other while preserving exact coordinates on every item
+        function build200mClusters(sortedList) {
+            const clusters = [];
+
+            sortedList.forEach(item => {
+                const lat = Number(item.lat);
+                const lng = Number(item.lng);
+                if (Number.isNaN(lat) || Number.isNaN(lng)) return;
+
+                let matchedCluster = null;
+                let bestDist = Infinity;
+
+                for (const cl of clusters) {
+                    const d = distanceMeters(lat, lng, cl.centerLat, cl.centerLng);
+                    if (d <= CLUSTER_RADIUS_METERS && d < bestDist) {
+                        bestDist = d;
+                        matchedCluster = cl;
+                    }
+                }
+
+                if (matchedCluster) {
+                    matchedCluster.items.push(item);
+                    const n = matchedCluster.items.length;
+                    matchedCluster.centerLat = ((matchedCluster.centerLat * (n - 1)) + lat) / n;
+                    matchedCluster.centerLng = ((matchedCluster.centerLng * (n - 1)) + lng) / n;
+                } else {
+                    clusters.push({
+                        id: `cluster-${clusters.length + 1}`,
+                        centerLat: lat,
+                        centerLng: lng,
+                        items: [item]
+                    });
+                }
+            });
+
+            // Ensure every cluster's items are strictly sorted by weight descending
+            clusters.forEach(cl => {
+                cl.items.sort((a, b) => {
+                    const wA = (a.weight !== null && a.weight !== undefined && !Number.isNaN(Number(a.weight))) ? Number(a.weight) : -1;
+                    const wB = (b.weight !== null && b.weight !== undefined && !Number.isNaN(Number(b.weight))) ? Number(b.weight) : -1;
+                    if (wB !== wA) return wB - wA;
+                    return String(b.catchDate || '').localeCompare(String(a.catchDate || ''));
+                });
+            });
+
+            return clusters;
+        }
+
+        function setOwnershipFilter(scope) {
+            ownershipFilter = scope === 'MINE' ? 'MINE' : 'ALL';
+            const allBtn = document.getElementById('scopeAllBtn');
+            const mineBtn = document.getElementById('scopeMineBtn');
+
+            if (ownershipFilter === 'ALL') {
+                allBtn.className = 'py-2 px-2.5 rounded-xl text-xs font-bold bg-nautical-900 text-white shadow-sm transition flex items-center justify-center gap-1.5';
+                mineBtn.className = 'py-2 px-2.5 rounded-xl text-xs font-semibold text-slate-600 hover:text-slate-900 transition flex items-center justify-center gap-1.5';
+            } else {
+                mineBtn.className = 'py-2 px-2.5 rounded-xl text-xs font-bold bg-coral-600 text-white shadow-sm transition flex items-center justify-center gap-1.5';
+                allBtn.className = 'py-2 px-2.5 rounded-xl text-xs font-semibold text-slate-600 hover:text-slate-900 transition flex items-center justify-center gap-1.5';
+            }
+
+            applyFilters();
+        }
+
+        function populateRegionSelects() {
+            const filterSel = document.getElementById('filterRegion');
+            const formSel = document.getElementById('spotRegion');
+            const defaultSel = document.getElementById('defaultRegionSelect');
+
+            filterSel.innerHTML = '<option value="ALL">Tutte le regioni</option>';
+            formSel.innerHTML = '';
+            defaultSel.innerHTML = '<option value="ALL">Tutta Italia (nessun filtro)</option>';
+
+            ITALIAN_REGIONS.forEach(reg => {
+                filterSel.insertAdjacentHTML('beforeend', `<option value="${escapeHtml(reg)}">${escapeHtml(reg)}</option>`);
+                formSel.insertAdjacentHTML('beforeend', `<option value="${escapeHtml(reg)}">${escapeHtml(reg)}</option>`);
+                defaultSel.insertAdjacentHTML('beforeend', `<option value="${escapeHtml(reg)}">${escapeHtml(reg)}</option>`);
+            });
+        }
+
+        function getDefaultRegion() {
+            return localStorage.getItem(DEFAULT_REGION_KEY) || 'ALL';
+        }
+
+        function updateDefaultRegionUI() {
+            const def = getDefaultRegion();
+            const label = document.getElementById('headerDefaultRegionLabel');
+            if (label) {
+                label.textContent = def === 'ALL' ? 'Tutta Italia' : def;
+            }
+        }
+
+        function openSettingsModal() {
+            document.getElementById('defaultRegionSelect').value = getDefaultRegion();
+            document.getElementById('settingsModal').classList.remove('hidden');
+            refreshIcons();
+        }
+
+        function closeSettingsModal() {
+            document.getElementById('settingsModal').classList.add('hidden');
+        }
+
+        function saveDefaultRegionFromModal() {
+            const chosen = document.getElementById('defaultRegionSelect').value;
+            localStorage.setItem(DEFAULT_REGION_KEY, chosen);
+            updateDefaultRegionUI();
+            document.getElementById('filterRegion').value = chosen;
+            if (chosen === 'ALL') {
+                map.setView([42.5, 12.5], 6);
+            } else {
+                focusRegionOnMap(chosen);
+            }
+            applyFilters();
+            closeSettingsModal();
+            showToast(`Regione di default impostata su ${chosen === 'ALL' ? 'Tutta Italia' : chosen}`);
+        }
+
+        function handleRegionFilterChange() {
+            const chosen = document.getElementById('filterRegion').value;
+            if (chosen === 'ALL') {
+                map.setView([42.5, 12.5], 6);
+            } else {
+                focusRegionOnMap(chosen);
+            }
+            applyFilters();
+        }
+
+        function focusRegionOnMap(regionName) {
+            const coords = REGION_CENTERS[regionName];
+            if (coords && map) {
+                map.setView([coords[0], coords[1]], coords[2]);
+            }
+        }
+
+        function updateSeaConditionOptions(selectedValue = '') {
+            const env = document.getElementById('environment').value;
+            const select = document.getElementById('seaCondition');
+            const options = env === 'Acque Interne' ? INLAND_CONDITIONS : SEA_CONDITIONS;
+
+            select.innerHTML = options.map(opt =>
+                `<option value="${escapeHtml(opt)}">${escapeHtml(opt)}</option>`
+            ).join('');
+
+            if (selectedValue && options.includes(selectedValue)) {
+                select.value = selectedValue;
+            }
+        }
+
+        function loadCatches() {
+            try {
+                const raw = localStorage.getItem(STORAGE_KEY);
+                if (raw) {
+                    const parsed = JSON.parse(raw);
+                    if (Array.isArray(parsed) && parsed.length > 0) {
+                        catches = parsed.map(item => ({
+                            ...item,
+                            isMine: typeof item.isMine === 'boolean' ? item.isMine : true,
+                            author: item.author || (item.isMine === false ? 'Community' : 'Tu')
+                        }));
+                        return;
+                    }
+                }
+            } catch (e) {
+                console.warn('Errore lettura localStorage:', e);
+            }
+            catches = [...INITIAL_CATCHES];
+            saveToStorage();
+        }
+
+        function saveToStorage() {
+            try {
+                localStorage.setItem(STORAGE_KEY, JSON.stringify(catches));
+            } catch (e) {
+                showToast('Spazio archiviazione esaurito (prova una foto più leggera)', 'error');
+            }
+        }
+
+        function initMap() {
+            map = L.map('map', { zoomControl: false }).setView([42.5, 12.5], 6);
+
+            L.control.zoom({ position: 'bottomright' }).addTo(map);
+
+            hybridLayer = L.tileLayer(
+                'https://mt1.google.com/vt/lyrs=y&hl=it&x={x}&y={y}&z={z}',
+                {
+                    maxZoom: 20,
+                    subdomains: ['mt0', 'mt1', 'mt2', 'mt3'],
+                    attribution: '&copy; Google Maps'
+                }
+            );
+
+            streetLayer = L.tileLayer(
+                'https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',
+                {
+                    maxZoom: 19,
+                    attribution: '&copy; OpenStreetMap contributors'
+                }
+            );
+
+            hybridLayer.addTo(map);
+            markersLayer = L.layerGroup().addTo(map);
+
+            map.on('zoomend', () => {
+                renderMarkers(getSortedFilteredCatches());
+            });
+
+            map.on('click', function () {
+                hideLocationResults();
+                setMapControlsHiddenDuringSearch(false);
+            });
+
+            setupMapLongPress();
+
+            const defReg = getDefaultRegion();
+            if (defReg !== 'ALL') {
+                document.getElementById('filterRegion').value = defReg;
+                focusRegionOnMap(defReg);
+            }
+        }
+
+        function clearLongPressPin() {
+            if (longPressMarker && map) {
+                map.removeLayer(longPressMarker);
+                longPressMarker = null;
+            }
+        }
+
+        function showLongPressPin(latlng) {
+            clearLongPressPin();
+
+            const lat = Number(latlng.lat).toFixed(6);
+            const lng = Number(latlng.lng).toFixed(6);
+            const detectedRegion = detectClosestRegion(Number(lat), Number(lng));
+
+            const pinIcon = L.divIcon({
+                html: `<div class="spot-marker" style="width: 36px; height: 36px; background: #f97316; border: 2.5px solid #ffffff;"><svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M20 10c0 6-8 12-8 12s-8-6-8-12a8 8 0 0 1 16 0Z"/><circle cx="12" cy="10" r="3"/></svg></div>`,
+                className: '',
+                iconSize: [36, 36],
+                iconAnchor: [18, 18],
+                popupAnchor: [0, -20]
+            });
+
+            const popupHtml = `
+                <div class="font-sans text-slate-800 p-3 space-y-2.5">
+                    <div class="flex items-center justify-between gap-2">
+                        <span class="text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-full bg-orange-100 text-coral-600">
+                            Punto selezionato
+                        </span>
+                        <button type="button" onclick="clearLongPressPin()" class="text-slate-400 hover:text-slate-600 text-xs px-1 font-bold" title="Rimuovi pin">
+                            ✕
+                        </button>
+                    </div>
+                    <div class="text-[11px] text-slate-600 space-y-0.5">
+                        <div>Coord.: <strong class="text-slate-800">${lat}, ${lng}</strong></div>
+                        <div>Regione rilevata: <strong class="text-slate-800">${escapeHtml(detectedRegion)}</strong></div>
+                    </div>
+                    <button type="button" onclick="openAddModalAtCoords(${lat}, ${lng}, '${escapeJs(detectedRegion)}')" class="w-full py-2 px-3 rounded-xl bg-gradient-to-r from-coral-500 to-orange-600 hover:from-coral-600 hover:to-orange-700 text-white text-xs font-bold shadow-sm transition flex items-center justify-center gap-1.5">
+                        + Aggiungi cattura qui
+                    </button>
+                </div>
+            `;
+
+            longPressMarker = L.marker([latlng.lat, latlng.lng], { icon: pinIcon })
+                .addTo(map)
+                .bindPopup(popupHtml, { closeButton: false })
+                .openPopup();
+        }
+
+        function openAddModalAtCoords(lat, lng, detectedRegion) {
+            clearLongPressPin();
+            openAddModal({ lat: Number(lat), lng: Number(lng), region: detectedRegion });
+        }
+
+        function setupMapLongPress() {
+            const container = map.getContainer();
+            const LONG_PRESS_MS = 550;
+            const MOVE_TOLERANCE_PX = 12;
+
+            container.addEventListener('touchstart', function (e) {
+                if (e.touches.length !== 1) {
+                    clearTimeout(longPressTimer);
+                    return;
+                }
+                const touch = e.touches[0];
+                longPressStartPoint = { x: touch.clientX, y: touch.clientY };
+
+                clearTimeout(longPressTimer);
+                longPressTimer = setTimeout(() => {
+                    const rect = container.getBoundingClientRect();
+                    const point = L.point(touch.clientX - rect.left, touch.clientY - rect.top);
+                    const latlng = map.containerPointToLatLng(point);
+                    showLongPressPin(latlng);
+                }, LONG_PRESS_MS);
+            }, { passive: true });
+
+            container.addEventListener('touchmove', function (e) {
+                if (!longPressStartPoint || e.touches.length !== 1) return;
+                const touch = e.touches[0];
+                const dx = Math.abs(touch.clientX - longPressStartPoint.x);
+                const dy = Math.abs(touch.clientY - longPressStartPoint.y);
+                if (dx > MOVE_TOLERANCE_PX || dy > MOVE_TOLERANCE_PX) {
+                    clearTimeout(longPressTimer);
+                }
+            }, { passive: true });
+
+            container.addEventListener('touchend', function () {
+                clearTimeout(longPressTimer);
+                longPressStartPoint = null;
+            }, { passive: true });
+
+            container.addEventListener('touchcancel', function () {
+                clearTimeout(longPressTimer);
+                longPressStartPoint = null;
+            }, { passive: true });
+
+            map.on('mousedown', function (e) {
+                if (e.originalEvent && e.originalEvent.button !== 0) return;
+                longPressStartPoint = { x: e.originalEvent.clientX, y: e.originalEvent.clientY };
+                clearTimeout(longPressTimer);
+                longPressTimer = setTimeout(() => {
+                    showLongPressPin(e.latlng);
+                }, LONG_PRESS_MS);
+            });
+
+            map.on('mousemove', function (e) {
+                if (!longPressStartPoint || !e.originalEvent) return;
+                const dx = Math.abs(e.originalEvent.clientX - longPressStartPoint.x);
+                const dy = Math.abs(e.originalEvent.clientY - longPressStartPoint.y);
+                if (dx > MOVE_TOLERANCE_PX || dy > MOVE_TOLERANCE_PX) {
+                    clearTimeout(longPressTimer);
+                }
+            });
+
+            map.on('mouseup dragstart zoomstart', function () {
+                clearTimeout(longPressTimer);
+                longPressStartPoint = null;
+            });
+
+            map.on('contextmenu', function (e) {
+                showLongPressPin(e.latlng);
+            });
+        }
+
+        function setMapLayer(type) {
+            const hybridBtn = document.getElementById('layer-hybrid');
+            const streetBtn = document.getElementById('layer-street');
+
+            map.removeLayer(hybridLayer);
+            map.removeLayer(streetLayer);
+
+            hybridBtn.className = 'layer-btn px-3 py-1.5 rounded-xl text-xs font-semibold text-slate-700 hover:bg-slate-100 transition flex items-center gap-1.5';
+            streetBtn.className = 'layer-btn px-3 py-1.5 rounded-xl text-xs font-semibold text-slate-700 hover:bg-slate-100 transition flex items-center gap-1.5';
+
+            if (type === 'street') {
+                streetLayer.addTo(map);
+                streetBtn.className = 'layer-btn px-3 py-1.5 rounded-xl text-xs font-semibold bg-nautical-900 text-white shadow-sm transition flex items-center gap-1.5';
+            } else {
+                hybridLayer.addTo(map);
+                hybridBtn.className = 'layer-btn px-3 py-1.5 rounded-xl text-xs font-semibold bg-nautical-900 text-white shadow-sm transition flex items-center gap-1.5';
+            }
+        }
+
+        function locateUser() {
+            const isSandboxedIframe = window.self !== window.top;
+
+            if (!('geolocation' in navigator)) {
+                showToast('Geolocalizzazione non supportata da questo browser.', 'error');
+                return;
+            }
+
+            if (!window.isSecureContext && location.hostname !== 'localhost' && location.hostname !== '127.0.0.1') {
+                showToast('Il GPS richiede una connessione sicura HTTPS per funzionare.', 'error');
+                return;
+            }
+
+            showToast('Ricerca posizione GPS...');
+            navigator.geolocation.getCurrentPosition(
+                (pos) => {
+                    const { latitude, longitude } = pos.coords;
+                    map.setView([latitude, longitude], 14);
+                    L.circleMarker([latitude, longitude], {
+                        radius: 8,
+                        color: '#ffffff',
+                        weight: 2,
+                        fillColor: '#0284c7',
+                        fillOpacity: 1
+                    }).addTo(map).bindPopup('La tua posizione attuale').openPopup();
+                    showToast('Posizione GPS individuata');
+                },
+                (err) => {
+                    let msg = 'Impossibile ottenere la posizione GPS.';
+                    if (err && err.code === 1) {
+                        const rawMsg = (err.message || '').toLowerCase();
+                        if (isSandboxedIframe || rawMsg.includes('permissions policy') || rawMsg.includes('feature policy')) {
+                            msg = 'Geolocalizzazione bloccata dal riquadro sandbox: funzionerà regolarmente su HTTPS o app nativa.';
+                        } else {
+                            msg = 'Permesso GPS negato: abilita la posizione nelle impostazioni del browser.';
+                        }
+                    } else if (err && err.code === 2) {
+                        msg = 'Segnale GPS non disponibile al momento: attiva la posizione sul dispositivo.';
+                    } else if (err && err.code === 3) {
+                        msg = 'Timeout nella ricerca del segnale GPS: riprova all\'aperto.';
+                    }
+                    showToast(msg, 'error');
+                },
+                {
+                    enableHighAccuracy: true,
+                    timeout: 8000,
+                    maximumAge: 30000
+                }
+            );
+        }
+
+        function setMapControlsHiddenDuringSearch(hide) {
+            const wrapper = document.getElementById('mapLayerControlsWrapper');
+            if (hide) {
+                wrapper.classList.add('hidden');
+            } else {
+                wrapper.classList.remove('hidden');
+            }
+        }
+
+        function handleLocationSearchInput() {
+            const input = document.getElementById('mapLocationInput');
+            const clearBtn = document.getElementById('clearLocationBtn');
+            const query = input.value.trim();
+
+            clearBtn.classList.toggle('hidden', query.length === 0);
+
+            if (query.length < 2) {
+                hideLocationResults();
+                setMapControlsHiddenDuringSearch(false);
+                return;
+            }
+
+            setMapControlsHiddenDuringSearch(true);
+
+            clearTimeout(locationSearchTimer);
+            locationSearchTimer = setTimeout(async () => {
+                await searchLocationNominatim(query);
+            }, 350);
+        }
+
+        async function searchLocationNominatim(query) {
+            const resultsBox = document.getElementById('locationSearchResults');
+            resultsBox.classList.remove('hidden');
+            resultsBox.innerHTML = `<div class="p-3 text-xs text-slate-500">Ricerca località in corso...</div>`;
+
+            try {
+                const url = `https://nominatim.openstreetmap.org/search?format=json&countrycodes=it&limit=6&q=${encodeURIComponent(query)}`;
+                const res = await fetch(url, { headers: { 'Accept-Language': 'it' } });
+                const data = await res.json();
+
+                if (!Array.isArray(data) || data.length === 0) {
+                    resultsBox.innerHTML = `<div class="p-3 text-xs text-slate-500">Nessuna località trovata in Italia.</div>`;
+                    return;
+                }
+
+                resultsBox.innerHTML = data.map(place => {
+                    const parts = place.display_name.split(',');
+                    const title = escapeHtml(parts[0].trim());
+                    const subtitle = escapeHtml(parts.slice(1, 3).join(',').trim());
+                    return `
+                        <button type="button" onclick="selectSearchedLocation(${place.lat}, ${place.lon}, '${escapeJs(place.display_name)}')" class="w-full text-left px-3.5 py-2.5 hover:bg-blue-50 border-b border-slate-100 last:border-none transition flex items-start gap-2.5">
+                            <span class="text-blue-600 text-xs mt-0.5 shrink-0 font-bold">📍</span>
+                            <div class="min-w-0">
+                                <div class="text-xs font-bold text-slate-800 truncate">${title}</div>
+                                <div class="text-[11px] text-slate-500 truncate">${subtitle}</div>
+                            </div>
+                        </button>
+                    `;
+                }).join('');
+            } catch (err) {
+                resultsBox.innerHTML = `<div class="p-3 text-xs text-red-600">Errore durante la ricerca località.</div>`;
+            }
+        }
+
+        function selectSearchedLocation(lat, lon, displayName) {
+            map.setView([parseFloat(lat), parseFloat(lon)], 13);
+            document.getElementById('mapLocationInput').value = displayName.split(',')[0].trim();
+            document.getElementById('clearLocationBtn').classList.remove('hidden');
+            hideLocationResults();
+            setMapControlsHiddenDuringSearch(false);
+        }
+
+        function clearLocationSearch() {
+            document.getElementById('mapLocationInput').value = '';
+            document.getElementById('clearLocationBtn').classList.add('hidden');
+            hideLocationResults();
+            setMapControlsHiddenDuringSearch(false);
+        }
+
+        function hideLocationResults() {
+            document.getElementById('locationSearchResults').classList.add('hidden');
+        }
+
+        function getScopeTotalCount() {
+            if (ownershipFilter === 'MINE') {
+                return catches.filter(c => c.isMine).length;
+            }
+            return catches.length;
+        }
+
+        function getSortedFilteredCatches() {
+            const reg = document.getElementById('filterRegion').value;
+            const env = document.getElementById('filterEnvironment').value;
+            const tech = document.getElementById('filterTechnique').value;
+
+            return catches
+                .filter(c => {
+                    if (ownershipFilter === 'MINE' && !c.isMine) return false;
+                    if (reg !== 'ALL' && c.region !== reg) return false;
+                    if (env !== 'ALL' && c.environment !== env) return false;
+                    if (tech !== 'ALL' && c.technique !== tech) return false;
+                    return true;
+                })
+                .sort((a, b) => {
+                    const weightA = (a.weight !== null && a.weight !== undefined && !Number.isNaN(Number(a.weight))) ? Number(a.weight) : -1;
+                    const weightB = (b.weight !== null && b.weight !== undefined && !Number.isNaN(Number(b.weight))) ? Number(b.weight) : -1;
+                    if (weightB !== weightA) return weightB - weightA;
+                    return String(b.catchDate || '').localeCompare(String(a.catchDate || ''));
+                });
+        }
+
+        function resetFilters() {
+            const defReg = getDefaultRegion();
+            document.getElementById('filterRegion').value = defReg;
+            document.getElementById('filterEnvironment').value = 'ALL';
+            document.getElementById('filterTechnique').value = 'ALL';
+            if (defReg === 'ALL') {
+                map.setView([42.5, 12.5], 6);
+            } else {
+                focusRegionOnMap(defReg);
+            }
+            applyFilters();
+        }
+
+        function applyFilters() {
+            const filtered = getSortedFilteredCatches();
+            renderMarkers(filtered);
+            renderCatchList(filtered);
+            updateStats(filtered);
+        }
+
+        function updateStats(list) {
+            const total = list.length;
+            const scopeTotal = getScopeTotalCount();
+            const clusters = build200mClusters(list);
+
+            document.getElementById('statTotalCatches').textContent = total;
+            document.getElementById('statUniqueSpots').textContent = clusters.length;
+            document.getElementById('filteredCounterLabel').textContent = `Mostrate ${total} di ${scopeTotal} catture`;
+        }
+
+        function createSinglePinMarker(c) {
+            const isSea = c.environment === 'Mare';
+            const bg = isSea ? '#2563eb' : '#059669';
+            const border = c.isMine ? '3px solid #f97316' : '2.5px solid #ffffff';
+
+            const iconHtml = `
+                <div class="spot-marker" style="width: 34px; height: 34px; background: ${bg}; border: ${border};">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.3" stroke-linecap="round" stroke-linejoin="round"><path d="M6.5 12c.94-3.46 4.94-6 8.5-6 3.56 0 6.06 2.54 7 6-.94 3.47-3.44 6-7 6s-7.56-2.53-8.5-6Z"/><path d="M18 12v.5"/><path d="M16 17.93a9.77 9.77 0 0 1 0-11.86"/><path d="M7 10.67C7 8 5.58 5.97 2.73 5.5c-1 1.5-1 5 .23 6.5-1.24 1.5-1.24 5-.23 6.5C5.58 18.03 7 16 7 13.33"/><path d="M10.46 7.26C10.2 5.88 9.17 4.24 8 3h5.8a2 2 0 0 1 1.98 1.67l.23 1.4"/><path d="m16.01 17.93-.23 1.4A2 2 0 0 1 13.8 21H9.5a5.96 5.96 0 0 0 1.49-3.98"/></svg>
+                </div>
+            `;
+
+            const customIcon = L.divIcon({
+                html: iconHtml,
+                className: '',
+                iconSize: [34, 34],
+                iconAnchor: [17, 17]
+            });
+
+            const marker = L.marker([Number(c.lat), Number(c.lng)], { icon: customIcon });
+            marker.on('click', () => {
+                openDetailModal(c.id);
+            });
+            return marker;
+        }
+
+        // Open Spot Ranking Modal when clicking a 200m cluster of 2+ catches
+        function openSpotRankingModal(clusterId) {
+            const cluster = activeClustersMap[clusterId];
+            if (!cluster || !cluster.items.length) return;
+
+            const items = cluster.items;
+            const mainSpotName = items[0].spotName || 'Spot di pesca';
+            const mainRegion = items[0].region || '';
+            const recordCatch = items[0];
+            const otherCatches = items.slice(1);
+            const recordWeightText = formatWeight(recordCatch.weight);
+
+            const recordPhotoHtml = recordCatch.photo
+                ? `<img src="${recordCatch.photo}" alt="${escapeHtml(recordCatch.species)}" class="w-20 h-20 rounded-2xl object-cover shrink-0 border-2 border-amber-300 shadow-sm">`
+                : `<div class="w-20 h-20 rounded-2xl bg-amber-100 text-amber-700 flex items-center justify-center shrink-0 border border-amber-300">
+                        <i data-lucide="trophy" class="w-9 h-9"></i>
+                   </div>`;
+
+            const othersHtml = otherCatches.length > 0
+                ? otherCatches.map((c, idx) => {
+                    const rank = idx + 2;
+                    const isSea = c.environment === 'Mare';
+                    const weightText = formatWeight(c.weight);
+                    return `
+                        <div onclick="closeSpotRankingModal(); openDetailModal('${escapeJs(c.id)}')" class="p-3 rounded-2xl bg-slate-50 hover:bg-blue-50/70 border border-slate-200/80 hover:border-blue-300 transition cursor-pointer flex items-center justify-between gap-3">
+                            <div class="flex items-center gap-3 min-w-0">
+                                <span class="w-7 h-7 rounded-xl bg-slate-200 text-slate-700 font-extrabold text-xs flex items-center justify-center shrink-0">
+                                    ${rank}°
+                                </span>
+                                <div class="min-w-0">
+                                    <div class="flex items-center gap-2">
+                                        <span class="font-bold text-xs sm:text-sm text-slate-900 truncate">${escapeHtml(c.species)}</span>
+                                        ${weightText ? `<span class="text-xs font-extrabold text-blue-700 shrink-0">${escapeHtml(weightText)}</span>` : ''}
+                                    </div>
+                                    <div class="text-[11px] text-slate-500 truncate mt-0.5">
+                                        ${c.isMine ? '<strong class="text-coral-600">Mia cattura</strong>' : escapeHtml(c.author || 'Community')} • ${escapeHtml(c.technique)} (${escapeHtml(c.lure)}) • ${formatDateItalian(c.catchDate)}
+                                    </div>
+                                </div>
+                            </div>
+                            <span class="text-[10px] font-bold px-2 py-0.5 rounded-full shrink-0 ${isSea ? 'bg-blue-100 text-blue-800' : 'bg-emerald-100 text-emerald-800'}">
+                                ${escapeHtml(c.environment)}
+                            </span>
+                        </div>
+                    `;
+                }).join('')
+                : '';
+
+            const content = document.getElementById('spotRankingContent');
+            content.innerHTML = `
+                <div class="px-5 py-4 bg-nautical-950 text-white flex items-start justify-between gap-3 shrink-0">
+                    <div class="min-w-0">
+                        <div class="flex items-center gap-2">
+                            <span class="text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-full bg-sky-500/20 text-sky-300">
+                                Raggio 200 metri • ${items.length} catture
+                            </span>
+                        </div>
+                        <h2 class="font-extrabold text-base sm:text-lg text-white truncate mt-1">${escapeHtml(mainSpotName)}</h2>
+                        ${mainRegion ? `<p class="text-xs text-slate-400">${escapeHtml(mainRegion)}</p>` : ''}
+                    </div>
+                    <button type="button" onclick="closeSpotRankingModal()" class="w-8 h-8 rounded-lg hover:bg-nautical-800 text-slate-400 hover:text-white flex items-center justify-center transition shrink-0">
+                        <i data-lucide="x" class="w-5 h-5"></i>
+                    </button>
+                </div>
+
+                <div class="p-4 sm:p-5 overflow-y-auto custom-scrollbar space-y-4">
+                    <!-- TOP SPOT RECORD CARD -->
+                    <div onclick="closeSpotRankingModal(); openDetailModal('${escapeJs(recordCatch.id)}')" class="rounded-2xl border-2 border-amber-400 bg-gradient-to-br from-amber-50 via-amber-50/70 to-orange-50/50 p-3.5 shadow-md hover:shadow-lg transition cursor-pointer space-y-3">
+                        <div class="flex items-center justify-between gap-2">
+                            <span class="inline-flex items-center gap-1.5 text-[11px] font-extrabold uppercase tracking-wider px-2.5 py-1 rounded-full bg-amber-400 text-nautical-950 shadow-sm">
+                                <i data-lucide="trophy" class="w-3.5 h-3.5"></i> RECORD DELLO SPOT
+                            </span>
+                            ${recordCatch.isMine
+                                ? `<span class="text-[11px] font-bold px-2.5 py-0.5 rounded-full bg-orange-100 text-coral-600">Mia cattura</span>`
+                                : `<span class="text-[11px] font-semibold px-2.5 py-0.5 rounded-full bg-white/90 text-slate-700 border border-amber-200">${escapeHtml(recordCatch.author || 'Community')}</span>`
+                            }
+                        </div>
+
+                        <div class="flex items-center gap-3.5">
+                            ${recordPhotoHtml}
+                            <div class="min-w-0 flex-1">
+                                <div class="flex flex-wrap items-baseline justify-between gap-2">
+                                    <h3 class="font-extrabold text-base sm:text-lg text-slate-900 truncate">${escapeHtml(recordCatch.species)}</h3>
+                                    ${recordWeightText ? `<span class="text-sm sm:text-base font-extrabold text-amber-800 bg-amber-200/70 px-2.5 py-0.5 rounded-xl">${escapeHtml(recordWeightText)}</span>` : ''}
+                                </div>
+                                <p class="text-xs font-semibold text-slate-700 mt-1">
+                                    ${escapeHtml(recordCatch.technique)} • ${escapeHtml(recordCatch.lure)}
+                                </p>
+                                <p class="text-[11px] text-slate-500 mt-0.5">
+                                    ${formatDateItalian(recordCatch.catchDate)} • Tocca per scheda completa
+                                </p>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- FULL RANKING OF OTHER CATCHES IN THIS SPOT -->
+                    <div class="space-y-2">
+                        <div class="flex items-center justify-between">
+                            <h4 class="text-xs font-bold uppercase tracking-wider text-slate-500">
+                                Classifica completa dello spot (${items.length})
+                            </h4>
+                            <span class="text-[11px] text-slate-400">Dal più pesante</span>
+                        </div>
+                        <div class="space-y-2">
+                            ${othersHtml}
+                        </div>
+                    </div>
+                </div>
+
+                <div class="px-5 py-3.5 bg-slate-50 border-t border-slate-200 flex items-center justify-between gap-2 shrink-0">
+                    <button type="button" onclick="closeSpotRankingModal()" class="px-4 py-2 rounded-xl text-xs font-semibold text-slate-600 hover:bg-slate-200/70 transition">
+                        Chiudi
+                    </button>
+                    <button type="button" onclick="zoomIntoCluster(${cluster.centerLat}, ${cluster.centerLng})" class="px-4 py-2 rounded-xl text-xs font-bold bg-nautical-900 hover:bg-nautical-800 text-white shadow-sm transition flex items-center gap-1.5">
+                        <i data-lucide="zoom-in" class="w-4 h-4"></i> Avvicina mappa sui pin
+                    </button>
+                </div>
+            `;
+
+            document.getElementById('spotRankingModal').classList.remove('hidden');
+            refreshIcons();
+        }
+
+        function closeSpotRankingModal() {
+            document.getElementById('spotRankingModal').classList.add('hidden');
+        }
+
+        function zoomIntoCluster(lat, lng) {
+            closeSpotRankingModal();
+            map.setView([lat, lng], UNCLUSTER_ZOOM_LEVEL);
+        }
+
+        function renderMarkers(list) {
+            markersLayer.clearLayers();
+            activeClustersMap = {};
+            const currentZoom = map ? map.getZoom() : 6;
+
+            if (currentZoom >= UNCLUSTER_ZOOM_LEVEL) {
+                list.forEach(c => {
+                    markersLayer.addLayer(createSinglePinMarker(c));
+                });
+                return;
+            }
+
+            const clusters = build200mClusters(list);
+
+            clusters.forEach(cluster => {
+                activeClustersMap[cluster.id] = cluster;
+
+                if (cluster.items.length === 1) {
+                    markersLayer.addLayer(createSinglePinMarker(cluster.items[0]));
+                } else {
+                    const hasMine = cluster.items.some(i => i.isMine);
+                    const hasSea = cluster.items.some(i => i.environment === 'Mare');
+                    const bg = hasSea ? '#071e36' : '#065f46';
+                    const size = cluster.items.length >= 10 ? 44 : 38;
+
+                    const clusterHtml = `
+                        <div class="cluster-marker" style="width: ${size}px; height: ${size}px; background: ${bg};">
+                            <span>${cluster.items.length}</span>
+                            ${hasMine ? '<span class="cluster-mine-badge" title="Include tue catture"></span>' : ''}
+                        </div>
+                    `;
+
+                    const clusterIcon = L.divIcon({
+                        html: clusterHtml,
+                        className: '',
+                        iconSize: [size, size],
+                        iconAnchor: [size / 2, size / 2]
+                    });
+
+                    const marker = L.marker([cluster.centerLat, cluster.centerLng], { icon: clusterIcon });
+                    marker.on('click', () => {
+                        openSpotRankingModal(cluster.id);
+                    });
+                    markersLayer.addLayer(marker);
+                }
+            });
+        }
+
+        function renderCatchList(list) {
+            const container = document.getElementById('catchListContainer');
+            if (!list.length) {
+                container.innerHTML = `
+                    <div class="text-center py-10 px-4 bg-white rounded-2xl border border-dashed border-slate-300 space-y-2">
+                        <div class="w-11 h-11 rounded-2xl bg-slate-100 text-slate-400 flex items-center justify-center mx-auto">
+                            <i data-lucide="fish" class="w-5 h-5"></i>
+                        </div>
+                        <p class="text-xs font-bold text-slate-700">Nessuna cattura trovata</p>
+                        <p class="text-[11px] text-slate-500">Prova a cambiare regione, filtro o registra una nuova cattura.</p>
+                    </div>
+                `;
+                refreshIcons();
+                return;
+            }
+
+            const maxWeight = list.reduce((max, item) => {
+                const w = (item.weight !== null && item.weight !== undefined && !Number.isNaN(Number(item.weight))) ? Number(item.weight) : 0;
+                return w > max ? w : max;
+            }, 0);
+
+            container.innerHTML = list.map((c, index) => {
+                const isSea = c.environment === 'Mare';
+                const formattedDate = formatDateItalian(c.catchDate);
+                const numericWeight = (c.weight !== null && c.weight !== undefined && !Number.isNaN(Number(c.weight))) ? Number(c.weight) : 0;
+                const isRecord = index === 0 && maxWeight > 0 && numericWeight === maxWeight;
+                const weightLabel = formatWeight(c.weight);
+
+                const authorTag = c.isMine
+                    ? `<span class="text-[10px] font-bold px-2 py-0.5 rounded-full bg-orange-100 text-coral-600 shrink-0">Mia cattura</span>`
+                    : `<span class="text-[10px] font-semibold px-2 py-0.5 rounded-full bg-slate-100 text-slate-600 shrink-0">${escapeHtml(c.author || 'Community')}</span>`;
+
+                return `
+                    <div onclick="handleSidebarCatchClick('${escapeJs(c.id)}')" class="bg-white rounded-2xl border ${isRecord ? 'border-amber-400 ring-2 ring-amber-400/30 bg-gradient-to-br from-amber-50/40 via-white to-white' : 'border-slate-200/90 hover:border-blue-400'} p-3 shadow-sm hover:shadow-md transition cursor-pointer space-y-2">
+                        ${isRecord ? `
+                            <div class="flex items-center justify-between text-[10px] font-extrabold uppercase tracking-wider text-amber-800 bg-amber-100/90 border border-amber-300/80 px-2.5 py-1 rounded-xl">
+                                <span class="flex items-center gap-1.5"><i data-lucide="trophy" class="w-3.5 h-3.5 text-amber-600"></i> Record cattura</span>
+                                <span>${escapeHtml(weightLabel)}</span>
+                            </div>
+                        ` : ''}
+                        <div class="flex items-start gap-3">
+                            ${c.photo
+                                ? `<img src="${c.photo}" alt="${escapeHtml(c.species)}" class="w-14 h-14 rounded-xl object-cover shrink-0 border border-slate-100">`
+                                : `<div class="w-14 h-14 rounded-xl ${isSea ? 'bg-blue-50 text-blue-600' : 'bg-emerald-50 text-emerald-600'} flex items-center justify-center shrink-0"><i data-lucide="fish" class="w-6 h-6"></i></div>`
+                            }
+                            <div class="flex-1 min-w-0">
+                                <div class="flex items-center justify-between gap-1.5">
+                                    <h4 class="font-bold text-sm text-slate-900 truncate">${escapeHtml(c.species)}</h4>
+                                    <div class="flex items-center gap-1 shrink-0">
+                                        ${authorTag}
+                                        <span class="text-[10px] font-bold px-2 py-0.5 rounded-full ${isSea ? 'bg-blue-100 text-blue-800' : 'bg-emerald-100 text-emerald-800'}">${escapeHtml(c.environment)}</span>
+                                    </div>
+                                </div>
+                                <p class="text-xs text-slate-600 truncate mt-0.5">
+                                    ${escapeHtml(c.spotName)}${c.region ? ` • <span class="text-slate-500">${escapeHtml(c.region)}</span>` : ''}
+                                </p>
+                                <p class="text-[11px] text-slate-400 mt-0.5">${formattedDate}</p>
+                            </div>
+                        </div>
+
+                        <div class="flex items-center justify-between pt-1 border-t border-slate-100 text-[11px]">
+                            <span class="font-semibold text-blue-700 truncate">${escapeHtml(c.technique)} • ${escapeHtml(c.lure)}</span>
+                            ${weightLabel ? `<span class="font-extrabold text-slate-800 shrink-0 ml-2">${escapeHtml(weightLabel)}</span>` : ''}
+                        </div>
+                    </div>
+                `;
+            }).join('');
+
+            refreshIcons();
+        }
+
+        function handleSidebarCatchClick(id) {
+            const item = catches.find(c => c.id === id);
+            if (!item) return;
+            map.setView([Number(item.lat), Number(item.lng)], UNCLUSTER_ZOOM_LEVEL);
+            if (window.innerWidth < 1024) {
+                toggleSidebar(false);
+            }
+            openDetailModal(id);
+        }
+
+        function openAddModal(preset = null) {
+            const form = document.getElementById('catchForm');
+            form.reset();
+            currentPhotoBase64 = '';
+            document.getElementById('photoFileName').textContent = 'Carica o scatta una foto';
+            document.getElementById('photoPreviewBox').classList.add('hidden');
+
+            const defReg = getDefaultRegion();
+            document.getElementById('spotRegion').value = (preset && preset.region) ? preset.region : (defReg !== 'ALL' ? defReg : 'Liguria');
+            updateSeaConditionOptions('');
+
+            const now = new Date();
+            now.setMinutes(now.getMinutes() - now.getTimezoneOffset());
+            document.getElementById('catchDate').value = now.toISOString().slice(0, 16);
+
+            if (preset && !Number.isNaN(preset.lat) && !Number.isNaN(preset.lng)) {
+                document.getElementById('lat').value = Number(preset.lat).toFixed(6);
+                document.getElementById('lng').value = Number(preset.lng).toFixed(6);
+            } else {
+                const center = map.getCenter();
+                document.getElementById('lat').value = center.lat.toFixed(6);
+                document.getElementById('lng').value = center.lng.toFixed(6);
+            }
+
+            document.getElementById('catchModal').classList.remove('hidden');
+            refreshIcons();
+        }
+
+        function closeAddModal() {
+            document.getElementById('catchModal').classList.add('hidden');
+        }
+
+        function useMapCenterCoords() {
+            const center = map.getCenter();
+            document.getElementById('lat').value = center.lat.toFixed(6);
+            document.getElementById('lng').value = center.lng.toFixed(6);
+            document.getElementById('spotRegion').value = detectClosestRegion(center.lat, center.lng);
+            showToast('Coordinate impostate sul centro attuale della mappa');
+        }
+
+        function handlePhotoUpload(event) {
+            const file = event.target.files[0];
+            if (!file) return;
+
+            const reader = new FileReader();
+            reader.onload = function (e) {
+                const img = new Image();
+                img.onload = function () {
+                    const canvas = document.createElement('canvas');
+                    const maxDim = 900;
+                    let width = img.width;
+                    let height = img.height;
+
+                    if (width > height && width > maxDim) {
+                        height = Math.round((height * maxDim) / width);
+                        width = maxDim;
+                    } else if (height > maxDim) {
+                        width = Math.round((width * maxDim) / height);
+                        height = maxDim;
+                    }
+
+                    canvas.width = width;
+                    canvas.height = height;
+                    const ctx = canvas.getContext('2d');
+                    ctx.drawImage(img, 0, 0, width, height);
+
+                    const compressed = canvas.toDataURL('image/jpeg', 0.78);
+                    currentPhotoBase64 = compressed;
+                    document.getElementById('photoPreviewImg').src = compressed;
+                    document.getElementById('photoPreviewBox').classList.remove('hidden');
+                    document.getElementById('photoFileName').textContent = file.name;
+                    refreshIcons();
+                };
+                img.src = e.target.result;
+            };
+            reader.readAsDataURL(file);
+        }
+
+        function clearPhoto() {
+            currentPhotoBase64 = '';
+            document.getElementById('photoInput').value = '';
+            document.getElementById('photoFileName').textContent = 'Carica o scatta una foto';
+            document.getElementById('photoPreviewBox').classList.add('hidden');
+        }
+
+        function saveCatch(event) {
+            event.preventDefault();
+
+            const lat = parseFloat(document.getElementById('lat').value);
+            const lng = parseFloat(document.getElementById('lng').value);
+
+            if (Number.isNaN(lat) || Number.isNaN(lng)) {
+                showToast('Inserisci latitudine e longitudine valide', 'error');
+                return;
+            }
+
+            const record = {
+                id: `catch-${Date.now()}`,
+                isMine: true,
+                author: 'Tu',
+                spotName: document.getElementById('spotName').value.trim(),
+                region: document.getElementById('spotRegion').value,
+                environment: document.getElementById('environment').value,
+                lat,
+                lng,
+                species: document.getElementById('species').value.trim(),
+                catchDate: document.getElementById('catchDate').value,
+                weight: document.getElementById('weight').value ? parseFloat(document.getElementById('weight').value) : null,
+                seaCondition: document.getElementById('seaCondition').value,
+                technique: document.getElementById('technique').value,
+                lure: document.getElementById('lure').value.trim(),
+                notes: document.getElementById('notes').value.trim(),
+                photo: currentPhotoBase64
+            };
+
+            catches.unshift(record);
+            saveToStorage();
+            closeAddModal();
+            applyFilters();
+            map.setView([lat, lng], UNCLUSTER_ZOOM_LEVEL);
+            showToast('Cattura salvata con le tue coordinate esatte');
+        }
+
+        function openDetailModal(id) {
+            const item = catches.find(c => c.id === id);
+            if (!item) return;
+
+            const isSea = item.environment === 'Mare';
+            const weightLabel = formatWeight(item.weight);
+            const content = document.getElementById('detailModalContent');
+
+            const headerMedia = item.photo
+                ? `<img src="${item.photo}" alt="${escapeHtml(item.species)}" class="w-full h-56 object-cover">`
+                : `<div class="w-full h-32 bg-gradient-to-r from-nautical-950 via-nautical-800 to-blue-800 flex items-center justify-center text-white gap-3">
+                        <i data-lucide="fish" class="w-8 h-8 text-sky-300"></i>
+                        <div>
+                            <div class="font-bold text-lg">${escapeHtml(item.species)}</div>
+                            <div class="text-xs text-sky-200">${escapeHtml(item.technique)}</div>
+                        </div>
+                   </div>`;
+
+            const authorPill = item.isMine
+                ? `<span class="text-[11px] font-bold px-2.5 py-1 rounded-full bg-orange-100 text-coral-600">Mia cattura</span>`
+                : `<span class="text-[11px] font-semibold px-2.5 py-1 rounded-full bg-slate-100 text-slate-700">${escapeHtml(item.author || 'Community')}</span>`;
+
+            const deleteAction = item.isMine
+                ? `<button type="button" onclick="deleteCatch('${escapeJs(item.id)}')" class="px-3.5 py-2 rounded-xl text-xs font-semibold text-red-600 hover:bg-red-50 transition flex items-center gap-1.5">
+                        <i data-lucide="trash-2" class="w-4 h-4"></i> Elimina
+                   </button>`
+                : `<span class="text-[11px] text-slate-400">Cattura community</span>`;
+
+            content.innerHTML = `
+                <div class="relative shrink-0">
+                    ${headerMedia}
+                    <button type="button" onclick="closeDetailModal()" class="absolute top-3 right-3 w-9 h-9 rounded-full bg-nautical-950/80 text-white hover:bg-nautical-950 flex items-center justify-center transition">
+                        <i data-lucide="x" class="w-5 h-5"></i>
+                    </button>
+                </div>
+
+                <div class="p-5 overflow-y-auto custom-scrollbar space-y-4">
+                    <div class="flex flex-wrap items-center justify-between gap-2">
+                        <div>
+                            <h2 class="font-extrabold text-xl text-slate-900">${escapeHtml(item.species)}</h2>
+                            <p class="text-xs text-slate-600 mt-0.5">
+                                ${escapeHtml(item.spotName)}${item.region ? ` • ${escapeHtml(item.region)}` : ''} • ${formatDateItalian(item.catchDate)}
+                            </p>
+                        </div>
+                        <div class="flex items-center gap-1.5">
+                            ${authorPill}
+                            <span class="text-[11px] font-bold px-2.5 py-1 rounded-full ${isSea ? 'bg-blue-100 text-blue-800' : 'bg-emerald-100 text-emerald-800'}">${escapeHtml(item.environment)}</span>
+                        </div>
+                    </div>
+
+                    <div class="grid grid-cols-3 gap-2.5 text-center">
+                        <div class="bg-slate-50 p-2.5 rounded-2xl border border-slate-200/70">
+                            <div class="text-[11px] text-slate-500">Peso</div>
+                            <div class="text-xs font-bold text-slate-800 mt-0.5">${weightLabel || '—'}</div>
+                        </div>
+                        <div class="bg-slate-50 p-2.5 rounded-2xl border border-slate-200/70">
+                            <div class="text-[11px] text-slate-500">Tecnica</div>
+                            <div class="text-xs font-bold text-slate-800 mt-0.5">${escapeHtml(item.technique)}</div>
+                        </div>
+                        <div class="bg-slate-50 p-2.5 rounded-2xl border border-slate-200/70">
+                            <div class="text-[11px] text-slate-500">Stato acqua</div>
+                            <div class="text-xs font-bold text-slate-800 mt-0.5 truncate">${item.seaCondition ? escapeHtml(item.seaCondition) : '—'}</div>
+                        </div>
+                    </div>
+
+                    <div class="bg-blue-50/60 border border-blue-200/70 rounded-2xl p-3.5 space-y-2">
+                        <div class="text-xs"><span class="text-slate-500">Esca / Artificiale:</span> <strong class="text-slate-800">${escapeHtml(item.lure)}</strong></div>
+                        ${item.notes ? `<p class="text-xs text-slate-700 pt-2 border-t border-blue-200/60 leading-relaxed">${escapeHtml(item.notes)}</p>` : ''}
+                    </div>
+
+                    <div class="text-[11px] text-slate-500 flex items-center justify-between">
+                        <span>Coord. esatte: ${Number(item.lat).toFixed(5)}, ${Number(item.lng).toFixed(5)}</span>
+                        <button type="button" onclick="centerCatchOnMap('${escapeJs(item.id)}')" class="px-3 py-1.5 rounded-xl bg-blue-50 hover:bg-blue-100 text-blue-700 font-semibold transition flex items-center gap-1">
+                            <i data-lucide="map-pin" class="w-3.5 h-3.5"></i> Centra sulla mappa
+                        </button>
+                    </div>
+
+                    <div class="pt-3 border-t border-slate-200 flex items-center justify-between">
+                        ${deleteAction}
+                        <button type="button" onclick="closeDetailModal()" class="px-4 py-2 rounded-xl text-xs font-bold bg-nautical-900 hover:bg-nautical-800 text-white transition">
+                            Chiudi
+                        </button>
+                    </div>
+                </div>
+            `;
+
+            document.getElementById('detailModal').classList.remove('hidden');
+            refreshIcons();
+        }
+
+        function centerCatchOnMap(id) {
+            const item = catches.find(c => c.id === id);
+            if (!item) return;
+            closeDetailModal();
+            map.setView([Number(item.lat), Number(item.lng)], UNCLUSTER_ZOOM_LEVEL);
+        }
+
+        function closeDetailModal() {
+            document.getElementById('detailModal').classList.add('hidden');
+        }
+
+        function deleteCatch(id) {
+            catches = catches.filter(c => c.id !== id);
+            saveToStorage();
+            closeDetailModal();
+            applyFilters();
+            showToast('Cattura eliminata');
+        }
+
+        function toggleSidebar(forceState = null) {
+            const sidebar = document.getElementById('sidebarPanel');
+            const mapControls = document.getElementById('mapTopControls');
+            const isClosed = sidebar.classList.contains('-translate-x-full');
+            const shouldOpen = forceState !== null ? forceState : isClosed;
+
+            if (shouldOpen) {
+                sidebar.classList.remove('-translate-x-full');
+                if (window.innerWidth < 1024 && mapControls) {
+                    mapControls.classList.add('hidden');
+                }
+            } else {
+                sidebar.classList.add('-translate-x-full');
+                if (mapControls) {
+                    mapControls.classList.remove('hidden');
+                }
+            }
+        }
+
+        function showToast(message, type = 'success') {
+            const toast = document.getElementById('toast');
+            const msgEl = document.getElementById('toastMessage');
+
+            msgEl.textContent = message;
+            toast.className = `fixed bottom-5 right-5 left-5 sm:left-auto sm:max-w-md z-50 ${type === 'error' ? 'bg-red-950 border-red-700' : 'bg-nautical-950 border-nautical-700'} text-white px-4 py-3 rounded-2xl shadow-xl border flex items-center gap-2.5 text-xs font-medium`;
+
+            toast.classList.remove('hidden');
+            clearTimeout(window.__toastTimer);
+            window.__toastTimer = setTimeout(() => {
+                toast.classList.add('hidden');
+            }, 4200);
+        }
+
+        function formatDateItalian(dtStr) {
+            if (!dtStr) return '';
+            const d = new Date(dtStr);
+            if (Number.isNaN(d.getTime())) return dtStr;
+            return d.toLocaleString('it-IT', {
+                day: '2-digit',
+                month: 'short',
+                year: 'numeric',
+                hour: '2-digit',
+                minute: '2-digit'
+            });
+        }
+
+        function escapeHtml(str) {
+            return String(str ?? '')
+                .replace(/&/g, '&amp;')
+                .replace(/</g, '&lt;')
+                .replace(/>/g, '&gt;')
+                .replace(/"/g, '&quot;')
+                .replace(/'/g, '&#39;');
+        }
+
+        function escapeJs(str) {
+            return String(str ?? '').replace(/\\/g, '\\\\').replace(/'/g, "\\'");
+        }
+
+        window.addEventListener('DOMContentLoaded', () => {
+            populateRegionSelects();
+            updateDefaultRegionUI();
+            loadCatches();
+            initMap();
+            applyFilters();
+            refreshIcons();
+        });
+    </script>
+</body>
+</html>
