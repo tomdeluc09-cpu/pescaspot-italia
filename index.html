@@ -1,77 +1,819 @@
-<!-- ... existing code ... -->
-            <!-- TOP NAVBAR (z-30) -->
-            <header class="h-16 w-full max-w-full bg-nautical-950 text-white px-2.5 sm:px-5 flex items-center justify-between gap-1.5 sm:gap-3 border-b border-nautical-800 shadow-lg z-30 shrink-0">
-                <div class="flex items-center gap-1.5 sm:gap-2.5 min-w-0 flex-1">
-                    <!-- Mobile Hamburger Toggle -->
-                    <button type="button" onclick="toggleSidebar()" aria-label="Apri menu" class="lg:hidden p-2 rounded-xl bg-nautical-900 hover:bg-nautical-800 text-slate-200 transition shrink-0">
-                        <i data-lucide="menu" class="w-4 h-4 sm:w-5 sm:h-5"></i>
-                    </button>
+<!DOCTYPE html>
+<html lang="it">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>PescaSpot Italia - Mappa Satellitare & Diario Catture Cloud</title>
 
-                    <!-- Brand Logo & Full Title -->
-                    <div class="flex items-center gap-2 min-w-0 flex-1">
-                        <div class="w-8 h-8 sm:w-9 sm:h-9 rounded-xl bg-gradient-to-br from-blue-500 to-emerald-500 flex items-center justify-center shadow-md shrink-0">
-                            <i data-lucide="fish" class="w-4 h-4 sm:w-5 sm:h-5 text-white"></i>
-                        </div>
-                        <div class="min-w-0 flex-1">
-                            <h1 class="font-extrabold text-[13px] sm:text-xl tracking-tight leading-tight truncate">
-                                PescaSpot <span class="text-sky-400">Italia</span>
-                            </h1>
-                            <p class="text-[11px] text-slate-300 hidden sm:block truncate mt-0.5">Cloud Community & Diario Catture</p>
-                        </div>
+    <!-- Google Font: Inter -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    fontFamily: {
+                        sans: ['Inter', 'system-ui', 'sans-serif'],
+                    },
+                    colors: {
+                        nautical: {
+                            950: '#071324',
+                            900: '#0b1d36',
+                            800: '#132c4e',
+                            700: '#1d406e',
+                        },
+                        coral: {
+                            500: '#f97316',
+                            600: '#ea580c',
+                        }
+                    }
+                }
+            }
+        };
+    </script>
+
+    <!-- Leaflet CSS & JS -->
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" crossorigin="" />
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" crossorigin=""></script>
+
+    <!-- Lucide Icons -->
+    <script src="https://unpkg.com/lucide@latest"></script>
+
+    <!-- Supabase JS v2 -->
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+
+    <style>
+        html, body {
+            height: 100%;
+            width: 100%;
+            margin: 0;
+            padding: 0;
+            overflow: hidden;
+            background-color: #071324;
+            font-family: 'Inter', system-ui, sans-serif;
+            -webkit-tap-highlight-color: transparent;
+        }
+
+        #map {
+            height: 100%;
+            width: 100%;
+            z-index: 1;
+            background: #09192f;
+        }
+
+        /* Personalizzazione controlli Leaflet per tema scuro/nautico */
+        .leaflet-control-zoom {
+            border: 1px solid rgba(30, 58, 95, 0.9) !important;
+            border-radius: 14px !important;
+            overflow: hidden;
+            box-shadow: 0 10px 25px rgba(0, 0, 0, 0.35) !important;
+        }
+        .leaflet-control-zoom a {
+            background-color: rgba(11, 29, 54, 0.94) !important;
+            color: #e2e8f0 !important;
+            border-bottom: 1px solid rgba(30, 58, 95, 0.8) !important;
+            width: 36px !important;
+            height: 36px !important;
+            line-height: 36px !important;
+            font-size: 18px !important;
+        }
+        .leaflet-control-zoom a:hover {
+            background-color: #132c4e !important;
+            color: #38bdf8 !important;
+        }
+        .leaflet-control-attribution {
+            background: rgba(7, 19, 36, 0.78) !important;
+            color: #94a3b8 !important;
+            font-size: 10px !important;
+            border-top-left-radius: 8px;
+        }
+        .leaflet-control-attribution a {
+            color: #38bdf8 !important;
+        }
+
+        /* Cluster Marker Dinamico (200m) */
+        .spot-cluster-marker {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            border-radius: 9999px;
+            font-weight: 800;
+            color: #ffffff;
+            border: 3px solid #ffffff;
+            box-shadow: 0 6px 18px rgba(0, 0, 0, 0.48), 0 0 0 4px rgba(14, 165, 233, 0.32);
+            transition: transform 0.15s ease;
+            cursor: pointer;
+        }
+        .spot-cluster-marker:hover {
+            transform: scale(1.1);
+        }
+
+        /* Animazione onda per posizione GPS utente */
+        @keyframes pulseRing {
+            0% { transform: scale(0.85); opacity: 0.85; }
+            70% { transform: scale(2.2); opacity: 0; }
+            100% { transform: scale(2.2); opacity: 0; }
+        }
+        .user-gps-pulse {
+            position: absolute;
+            inset: -6px;
+            border-radius: 9999px;
+            background: rgba(56, 189, 248, 0.55);
+            animation: pulseRing 2s infinite;
+        }
+
+        /* Scrollbar sottile */
+        .custom-scroll::-webkit-scrollbar {
+            width: 6px;
+            height: 6px;
+        }
+        .custom-scroll::-webkit-scrollbar-track {
+            background: rgba(15, 23, 42, 0.4);
+        }
+        .custom-scroll::-webkit-scrollbar-thumb {
+            background: rgba(56, 189, 248, 0.35);
+            border-radius: 9999px;
+        }
+    </style>
+</head>
+<body class="flex flex-col h-full w-full text-slate-100 select-none">
+
+    <!-- ===================================================================== -->
+    <!-- TOP NAVBAR RESPONSIVE (Senza sovrapposizioni su mobile)               -->
+    <!-- ===================================================================== -->
+    <header class="h-16 w-full max-w-full bg-slate-900 text-white px-2.5 sm:px-5 flex items-center justify-between gap-2 border-b border-slate-800 shadow-lg z-30 shrink-0">
+        <!-- Left: Hamburger + Brand Logo & Titolo con spazio dedicato -->
+        <div class="flex items-center gap-2 min-w-0 flex-1">
+            <button type="button" onclick="toggleSidebar()" aria-label="Apri filtri e menu" class="lg:hidden p-2 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700/80 transition shrink-0">
+                <i data-lucide="menu" class="w-4 h-4 sm:w-5 sm:h-5"></i>
+            </button>
+
+            <div class="flex items-center gap-2 min-w-0 flex-1">
+                <div class="w-8 h-8 sm:w-9 sm:h-9 rounded-xl bg-gradient-to-br from-sky-500 to-emerald-500 flex items-center justify-center shadow-md shrink-0">
+                    <i data-lucide="fish" class="w-4 h-4 sm:w-5 sm:h-5 text-white"></i>
+                </div>
+                <div class="min-w-0 flex-1">
+                    <h1 class="font-extrabold text-[14px] sm:text-lg md:text-xl tracking-tight leading-tight truncate">
+                        PescaSpot <span class="text-sky-400">Italia</span>
+                    </h1>
+                    <p class="text-[11px] text-slate-400 hidden sm:block truncate">Mappa Satellitare & Diario Catture Cloud</p>
+                </div>
+            </div>
+        </div>
+
+        <!-- Center (solo schermi grandi): Statistiche rapide -->
+        <div class="hidden xl:flex items-center gap-4 text-xs bg-slate-800/90 px-4 py-2 rounded-full border border-slate-700 shrink-0">
+            <div class="flex items-center gap-1.5">
+                <i data-lucide="fish" class="w-4 h-4 text-sky-400"></i>
+                <span class="text-slate-400">Catture:</span>
+                <strong id="headerStatCatches" class="text-white font-bold text-sm">0</strong>
+            </div>
+            <div class="h-4 w-px bg-slate-700"></div>
+            <div class="flex items-center gap-1.5">
+                <i data-lucide="map-pin" class="w-4 h-4 text-coral-500"></i>
+                <span class="text-slate-400">Spot (200m):</span>
+                <strong id="headerStatSpots" class="text-white font-bold text-sm">0</strong>
+            </div>
+        </div>
+
+        <!-- Right: Sync Cloud + Auth + Nuova Cattura (compatti e shrink-0) -->
+        <div class="flex items-center gap-1.5 sm:gap-2.5 shrink-0">
+            <!-- Bottone Sincronizzazione Cloud -->
+            <button id="syncCloudBtn" type="button" onclick="fetchCatchesFromSupabase(true)" title="Aggiorna catture dal cloud" aria-label="Aggiorna catture dal cloud" class="p-2 rounded-xl bg-slate-800 hover:bg-slate-700 text-sky-400 border border-slate-700 transition shrink-0">
+                <i id="syncIcon" data-lucide="refresh-cw" class="w-4 h-4"></i>
+            </button>
+
+            <!-- Slot Autenticazione (Accedi / Utente + Esci) -->
+            <div id="authHeaderSlot" class="flex items-center shrink-0">
+                <button type="button" onclick="openAuthModal('login')" class="px-2.5 py-2 sm:px-3.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-sky-300 border border-slate-700 text-xs font-semibold transition flex items-center gap-1.5 whitespace-nowrap">
+                    <i data-lucide="user" class="w-3.5 h-3.5 shrink-0"></i>
+                    <span>Accedi</span>
+                </button>
+            </div>
+
+            <!-- Bottone Nuova Cattura -->
+            <button type="button" onclick="handleNewCatchTrigger()" class="px-2.5 py-1.5 sm:px-4 sm:py-2 rounded-xl bg-gradient-to-r from-coral-500 to-orange-600 hover:from-coral-600 hover:to-orange-700 text-white font-bold text-[11px] sm:text-xs leading-tight flex items-center gap-1.5 shadow-md transition active:scale-95 shrink-0">
+                <i data-lucide="plus-circle" class="w-4 h-4 shrink-0"></i>
+                <span class="hidden xs:inline sm:inline">Nuova</span>
+                <span class="xs:hidden sm:hidden">Cattura</span>
+            </button>
+        </div>
+    </header>
+
+    <!-- ===================================================================== -->
+    <!-- MAIN WORKSPACE: SIDEBAR FILTRI + MAPPA SATELLITARE                    -->
+    <!-- ===================================================================== -->
+    <div class="relative flex-1 flex overflow-hidden w-full">
+
+        <!-- Backdrop mobile per chiusura drawer -->
+        <div id="sidebarBackdrop" onclick="toggleSidebar(false)" class="fixed inset-0 bg-slate-950/70 backdrop-blur-xs z-30 hidden lg:hidden"></div>
+
+        <!-- Sidebar / Drawer Filtri & Info -->
+        <aside id="appSidebar" class="fixed lg:static inset-y-0 left-0 w-80 max-w-[86vw] bg-slate-900 border-r border-slate-800 z-40 transform -translate-x-full lg:translate-x-0 transition-transform duration-200 ease-out flex flex-col justify-between overflow-hidden shadow-2xl lg:shadow-none">
+            <div class="p-4 overflow-y-auto custom-scroll space-y-5 flex-1">
+                <!-- Intestazione mobile drawer -->
+                <div class="flex items-center justify-between lg:hidden pb-2 border-b border-slate-800">
+                    <span class="font-bold text-sm text-sky-400 flex items-center gap-2">
+                        <i data-lucide="sliders-horizontal" class="w-4 h-4"></i>
+                        Filtri & Strumenti Spot
+                    </span>
+                    <button type="button" onclick="toggleSidebar(false)" class="p-1.5 rounded-lg bg-slate-800 text-slate-300 hover:text-white">
+                        <i data-lucide="x" class="w-4 h-4"></i>
+                    </button>
+                </div>
+
+                <!-- Riepilogo Numeri -->
+                <div class="grid grid-cols-2 gap-2.5">
+                    <div class="bg-slate-800/80 border border-slate-700/80 rounded-2xl p-3">
+                        <p class="text-[11px] text-slate-400 font-medium">Catture Visibili</p>
+                        <p id="sideStatCatches" class="text-xl font-extrabold text-white mt-0.5">0</p>
+                    </div>
+                    <div class="bg-slate-800/80 border border-slate-700/80 rounded-2xl p-3">
+                        <p class="text-[11px] text-slate-400 font-medium">Spot Raggruppati</p>
+                        <p id="sideStatSpots" class="text-xl font-extrabold text-sky-400 mt-0.5">0</p>
                     </div>
                 </div>
 
-                <!-- Desktop Quick Stats -->
-                <div class="hidden xl:flex items-center gap-5 text-xs bg-nautical-900/90 px-4 py-2 rounded-full border border-nautical-800 shrink-0">
-                    <div class="flex items-center gap-2">
-                        <i data-lucide="fish" class="w-4 h-4 text-sky-400"></i>
-                        <span class="text-slate-400">Catture:</span>
-                        <strong id="statTotalCatches" class="text-white font-bold text-sm">0</strong>
-                    </div>
-                    <div class="h-4 w-px bg-nautical-700"></div>
-                    <div class="flex items-center gap-2">
-                        <i data-lucide="map-pin" class="w-4 h-4 text-coral-500"></i>
-                        <span class="text-slate-400">Spot (200m):</span>
-                        <strong id="statUniqueSpots" class="text-white font-bold text-sm">0</strong>
-                    </div>
-                </div>
-
-                <!-- Right Actions: Auth Status + Sync + Add Capture -->
-                <div class="flex items-center gap-1 sm:gap-2.5 shrink-0">
-                    <!-- Refresh Cloud Button -->
-                    <button id="syncCloudBtn" type="button" onclick="fetchCatchesFromSupabase(true)" title="Aggiorna catture dal cloud" aria-label="Aggiorna catture dal cloud" class="p-2 rounded-xl bg-nautical-900 hover:bg-nautical-800 text-sky-300 border border-nautical-800 transition shrink-0">
-                        <i id="syncIcon" data-lucide="refresh-cw" class="w-3.5 h-3.5 sm:w-4 sm:h-4"></i>
-                    </button>
-
-                    <!-- Auth Header Slot -->
-                    <div id="authHeaderSlot" class="flex items-center shrink-0">
-                        <button type="button" onclick="openAuthModal('login')" class="px-2 py-1.5 sm:px-3.5 sm:py-2 rounded-xl bg-nautical-800 hover:bg-nautical-700 text-sky-200 border border-nautical-700 text-[11px] sm:text-xs font-semibold transition flex items-center gap-1 whitespace-nowrap">
-                            <i data-lucide="user" class="w-3.5 h-3.5 shrink-0"></i>
-                            <span>Accedi</span>
+                <!-- Selettore Proprietà: Tutte vs Solo le mie -->
+                <div>
+                    <label class="block text-xs font-semibold text-slate-300 mb-2">Visualizza Catture</label>
+                    <div class="grid grid-cols-2 gap-1.5 bg-slate-950 p-1 rounded-xl border border-slate-800">
+                        <button type="button" id="filterOwnerAll" onclick="setOwnerFilter('all')" class="py-2 px-2.5 rounded-lg text-xs font-bold bg-sky-600 text-white shadow transition">
+                            Tutte (Community)
+                        </button>
+                        <button type="button" id="filterOwnerMine" onclick="setOwnerFilter('mine')" class="py-2 px-2.5 rounded-lg text-xs font-semibold text-slate-400 hover:text-white transition">
+                            Solo le mie
                         </button>
                     </div>
+                </div>
 
-                    <!-- Two-line Compact Add Capture Button -->
-                    <button type="button" onclick="handleNewCatchTrigger()" class="px-2.5 py-1.5 sm:px-4 sm:py-1.5 rounded-xl bg-gradient-to-r from-coral-500 to-orange-600 hover:from-coral-600 hover:to-orange-700 text-white font-semibold text-[10px] sm:text-xs leading-tight flex flex-col items-center justify-center shadow-md transition transform active:scale-95 text-center shrink-0">
-                        <span class="flex items-center gap-0.5 font-medium"><i data-lucide="plus" class="w-3 h-3"></i><span>Nuova</span></span>
-                        <span class="font-extrabold">Cattura</span>
+                <!-- Filtro Ambiente -->
+                <div>
+                    <label for="filterEnvironment" class="block text-xs font-semibold text-slate-300 mb-1.5">Ambiente di Pesca</label>
+                    <select id="filterEnvironment" onchange="applyFilters()" class="w-full bg-slate-800 border border-slate-700 rounded-xl px-3 py-2.5 text-xs text-white focus:outline-none focus:border-sky-500">
+                        <option value="">Tutti gli ambienti (Mare, Fiume, Lago)</option>
+                        <option value="Mare">Mare / Costa / Scogliera</option>
+                        <option value="Fiume">Fiume / Torrente</option>
+                        <option value="Lago">Lago / Bacino</option>
+                    </select>
+                </div>
+
+                <!-- Filtro Regione -->
+                <div>
+                    <label for="filterRegion" class="block text-xs font-semibold text-slate-300 mb-1.5">Regione Italiana</label>
+                    <select id="filterRegion" onchange="applyFilters()" class="w-full bg-slate-800 border border-slate-700 rounded-xl px-3 py-2.5 text-xs text-white focus:outline-none focus:border-sky-500">
+                        <option value="">Tutte le Regioni</option>
+                        <option value="Abruzzo">Abruzzo</option>
+                        <option value="Basilicata">Basilicata</option>
+                        <option value="Calabria">Calabria</option>
+                        <option value="Campania">Campania</option>
+                        <option value="Emilia-Romagna">Emilia-Romagna</option>
+                        <option value="Friuli-Venezia Giulia">Friuli-Venezia Giulia</option>
+                        <option value="Lazio">Lazio</option>
+                        <option value="Liguria">Liguria</option>
+                        <option value="Lombardia">Lombardia</option>
+                        <option value="Marche">Marche</option>
+                        <option value="Molise">Molise</option>
+                        <option value="Piemonte">Piemonte</option>
+                        <option value="Puglia">Puglia</option>
+                        <option value="Sardegna">Sardegna</option>
+                        <option value="Sicilia">Sicilia</option>
+                        <option value="Toscana">Toscana</option>
+                        <option value="Trentino-Alto Adige">Trentino-Alto Adige</option>
+                        <option value="Umbria">Umbria</option>
+                        <option value="Valle d'Aosta">Valle d'Aosta</option>
+                        <option value="Veneto">Veneto</option>
+                    </select>
+                </div>
+
+                <!-- Filtro Tecnica -->
+                <div>
+                    <label for="filterTechnique" class="block text-xs font-semibold text-slate-300 mb-1.5">Tecnica di Pesca</label>
+                    <select id="filterTechnique" onchange="applyFilters()" class="w-full bg-slate-800 border border-slate-700 rounded-xl px-3 py-2.5 text-xs text-white focus:outline-none focus:border-sky-500">
+                        <option value="">Tutte le tecniche</option>
+                        <option value="Spinning">Spinning</option>
+                        <option value="Surfcasting">Surfcasting</option>
+                        <option value="Bolognese / Inglese">Bolognese / Inglese</option>
+                        <option value="Eging (Cefalopodi)">Eging (Cefalopodi)</option>
+                        <option value="Traina / Bolentino">Traina / Bolentino</option>
+                        <option value="Carpfishing / Feeder">Carpfishing / Feeder</option>
+                        <option value="Pesca a Mosca">Pesca a Mosca</option>
+                        <option value="Altro">Altro</option>
+                    </select>
+                </div>
+
+                <!-- Reset Filtri -->
+                <button type="button" onclick="resetFilters()" class="w-full py-2 px-3 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-300 text-xs font-semibold border border-slate-700 transition flex items-center justify-center gap-1.5">
+                    <i data-lucide="rotate-ccw" class="w-3.5 h-3.5"></i>
+                    Azzera tutti i filtri
+                </button>
+
+                <!-- Guida rapida & Legenda Cluster -->
+                <div class="bg-slate-800/60 border border-slate-700/70 rounded-2xl p-3.5 space-y-2.5">
+                    <h3 class="text-xs font-bold text-sky-400 uppercase tracking-wider flex items-center gap-1.5">
+                        <i data-lucide="info" class="w-3.5 h-3.5"></i>
+                        Come funziona la mappa
+                    </h3>
+                    <p class="text-[11px] text-slate-300 leading-relaxed">
+                        <strong class="text-white">Pressione prolungata</strong> (o tasto destro) su un punto qualsiasi della mappa per inserire una cattura con coordinate GPS già compilate.
+                    </p>
+                    <div class="pt-1 space-y-1.5 text-[11px] text-slate-300">
+                        <div class="flex items-center gap-2">
+                            <span class="w-3.5 h-3.5 rounded-full bg-sky-500 border border-white inline-block shrink-0"></span>
+                            <span>1 cattura nello spot (raggio 200m)</span>
+                        </div>
+                        <div class="flex items-center gap-2">
+                            <span class="w-3.5 h-3.5 rounded-full bg-amber-500 border border-white inline-block shrink-0"></span>
+                            <span>2 - 4 catture nello spot (clicca per classifica)</span>
+                        </div>
+                        <div class="flex items-center gap-2">
+                            <span class="w-3.5 h-3.5 rounded-full bg-orange-600 border border-white inline-block shrink-0"></span>
+                            <span>5+ catture: Spot caldo con Record!</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Footer Sidebar: Segnala Problema / Bug -->
+            <div class="p-3.5 border-t border-slate-800 bg-slate-950/60">
+                <button type="button" onclick="openBugModal()" class="w-full py-2.5 px-3 rounded-xl bg-slate-800 hover:bg-slate-700 text-amber-300 border border-slate-700 text-xs font-semibold transition flex items-center justify-center gap-2">
+                    <i data-lucide="bug" class="w-4 h-4"></i>
+                    Segnala problema / Feedback
+                </button>
+            </div>
+        </aside>
+
+        <!-- Area Mappa a Schermo Intero -->
+        <main class="relative flex-1 h-full w-full overflow-hidden">
+            <div id="map"></div>
+
+            <!-- Banner superiore informativo su mappa -->
+            <div class="absolute top-3 left-3 right-14 sm:right-auto z-20 pointer-events-none flex flex-wrap items-center gap-2">
+                <div class="pointer-events-auto bg-slate-900/90 backdrop-blur-md border border-slate-700/90 text-slate-200 px-3 py-1.5 rounded-full text-[11px] font-medium shadow-lg flex items-center gap-2">
+                    <span id="cloudStatusDot" class="w-2 h-2 rounded-full bg-emerald-400"></span>
+                    <span id="filteredCounterLabel">Pronto • Tieni premuto sulla mappa per aggiungere</span>
+                </div>
+            </div>
+
+            <!-- Controlli Rapidi Mappa (In basso a destra: GPS & Vista Italia) -->
+            <div class="absolute bottom-6 right-3 z-20 flex flex-col gap-2">
+                <button type="button" onclick="locateUserOnMap()" title="Centra sulla mia posizione GPS" aria-label="Centra sulla mia posizione GPS" class="w-11 h-11 rounded-2xl bg-slate-900/95 hover:bg-slate-800 text-sky-400 border border-slate-700 shadow-xl flex items-center justify-center transition active:scale-95">
+                    <i data-lucide="crosshair" class="w-5 h-5"></i>
+                </button>
+                <button type="button" onclick="resetItalyView()" title="Vista completa Italia" aria-label="Vista completa Italia" class="w-11 h-11 rounded-2xl bg-slate-900/95 hover:bg-slate-800 text-slate-200 border border-slate-700 shadow-xl flex items-center justify-center transition active:scale-95">
+                    <i data-lucide="compass" class="w-5 h-5"></i>
+                </button>
+            </div>
+        </main>
+    </div>
+
+    <!-- ===================================================================== -->
+    <!-- MODALE 1: CLASSIFICA E RECORD DELLO SPOT (Cluster 200m)               -->
+    <!-- ===================================================================== -->
+    <div id="spotModal" class="fixed inset-0 bg-slate-950/80 backdrop-blur-xs z-50 hidden items-center justify-center p-3 sm:p-5">
+        <div class="bg-slate-900 border border-slate-700 rounded-3xl w-full max-w-xl max-h-[88vh] flex flex-col shadow-2xl overflow-hidden">
+            <!-- Header Modale Spot -->
+            <div class="p-4 sm:p-5 bg-gradient-to-r from-slate-900 via-slate-800 to-slate-900 border-b border-slate-700 flex items-start justify-between gap-3">
+                <div class="min-w-0">
+                    <div class="flex items-center gap-2">
+                        <span class="px-2.5 py-0.5 rounded-full text-[11px] font-bold bg-sky-500/20 text-sky-300 border border-sky-500/30">
+                            Raggio 200m
+                        </span>
+                        <span id="spotModalCountBadge" class="px-2.5 py-0.5 rounded-full text-[11px] font-bold bg-amber-500/20 text-amber-300 border border-amber-500/30">
+                            0 catture
+                        </span>
+                    </div>
+                    <h2 id="spotModalTitle" class="text-lg sm:text-xl font-extrabold text-white mt-1.5 truncate">
+                        Classifica & Record dello Spot
+                    </h2>
+                    <p id="spotModalCoords" class="text-xs text-slate-400 mt-0.5">Lat: --, Lng: --</p>
+                </div>
+
+                <button type="button" onclick="closeModal('spotModal')" class="p-2 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-300 hover:text-white shrink-0">
+                    <i data-lucide="x" class="w-5 h-5"></i>
+                </button>
+            </div>
+
+            <!-- Lista Catture dello Spot (Record in cima) -->
+            <div id="spotModalList" class="p-4 sm:p-5 overflow-y-auto custom-scroll space-y-3.5 flex-1">
+                <!-- Popolato dinamicamente via JS -->
+            </div>
+
+            <!-- Footer Azione Rapida nello stesso Spot -->
+            <div class="p-3.5 sm:p-4 border-t border-slate-800 bg-slate-950/70 flex items-center justify-between gap-3">
+                <button type="button" onclick="closeModal('spotModal')" class="px-4 py-2.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-300 text-xs font-semibold">
+                    Chiudi
+                </button>
+                <button type="button" id="spotModalAddHereBtn" class="px-4 py-2.5 rounded-xl bg-gradient-to-r from-coral-500 to-orange-600 hover:from-coral-600 hover:to-orange-700 text-white text-xs font-bold shadow-md flex items-center gap-1.5">
+                    <i data-lucide="plus" class="w-4 h-4"></i>
+                    Registra cattura qui
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- ===================================================================== -->
+    <!-- MODALE 2: NUOVA CATTURA (Con compressione foto su Canvas)             -->
+    <!-- ===================================================================== -->
+    <div id="newCatchModal" class="fixed inset-0 bg-slate-950/80 backdrop-blur-xs z-50 hidden items-center justify-center p-3 sm:p-5">
+        <div class="bg-slate-900 border border-slate-700 rounded-3xl w-full max-w-lg max-h-[90vh] flex flex-col shadow-2xl overflow-hidden">
+            <div class="p-4 sm:p-5 border-b border-slate-800 flex items-center justify-between">
+                <div class="flex items-center gap-2.5">
+                    <div class="w-9 h-9 rounded-xl bg-coral-500/20 text-coral-500 flex items-center justify-center">
+                        <i data-lucide="fish" class="w-5 h-5"></i>
+                    </div>
+                    <div>
+                        <h2 class="text-base sm:text-lg font-extrabold text-white">Registra Nuova Cattura</h2>
+                        <p class="text-[11px] text-slate-400">Salvataggio nel cloud PescaSpot Italia</p>
+                    </div>
+                </div>
+                <button type="button" onclick="closeModal('newCatchModal')" class="p-2 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-300">
+                    <i data-lucide="x" class="w-5 h-5"></i>
+                </button>
+            </div>
+
+            <form id="newCatchForm" onsubmit="submitNewCatch(event)" class="p-4 sm:p-5 overflow-y-auto custom-scroll space-y-4 flex-1">
+                <!-- Specie e Peso -->
+                <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                    <div>
+                        <label class="block text-xs font-semibold text-slate-300 mb-1">Specie Catturata *</label>
+                        <input type="text" id="catchSpecies" required placeholder="Es. Spigola, Orata, Luccio..." class="w-full bg-slate-800 border border-slate-700 rounded-xl px-3 py-2.5 text-sm text-white placeholder-slate-500 focus:outline-none focus:border-sky-500">
+                    </div>
+                    <div class="grid grid-cols-2 gap-2">
+                        <div>
+                            <label class="block text-xs font-semibold text-slate-300 mb-1">Peso (kg) *</label>
+                            <input type="number" id="catchWeight" step="0.01" min="0.01" max="500" required placeholder="1.45" class="w-full bg-slate-800 border border-slate-700 rounded-xl px-3 py-2.5 text-sm text-white placeholder-slate-500 focus:outline-none focus:border-sky-500">
+                        </div>
+                        <div>
+                            <label class="block text-xs font-semibold text-slate-300 mb-1">Lunghezza (cm)</label>
+                            <input type="number" id="catchLength" step="0.5" min="1" max="500" placeholder="52" class="w-full bg-slate-800 border border-slate-700 rounded-xl px-3 py-2.5 text-sm text-white placeholder-slate-500 focus:outline-none focus:border-sky-500">
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Ambiente e Tecnica -->
+                <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                    <div>
+                        <label class="block text-xs font-semibold text-slate-300 mb-1">Ambiente *</label>
+                        <select id="catchEnvironment" required class="w-full bg-slate-800 border border-slate-700 rounded-xl px-3 py-2.5 text-sm text-white focus:outline-none focus:border-sky-500">
+                            <option value="Mare">Mare</option>
+                            <option value="Fiume">Fiume</option>
+                            <option value="Lago">Lago</option>
+                        </select>
+                    </div>
+                    <div>
+                        <label class="block text-xs font-semibold text-slate-300 mb-1">Tecnica *</label>
+                        <select id="catchTechnique" required class="w-full bg-slate-800 border border-slate-700 rounded-xl px-3 py-2.5 text-sm text-white focus:outline-none focus:border-sky-500">
+                            <option value="Spinning">Spinning</option>
+                            <option value="Surfcasting">Surfcasting</option>
+                            <option value="Bolognese / Inglese">Bolognese / Inglese</option>
+                            <option value="Eging (Cefalopodi)">Eging (Cefalopodi)</option>
+                            <option value="Traina / Bolentino">Traina / Bolentino</option>
+                            <option value="Carpfishing / Feeder">Carpfishing / Feeder</option>
+                            <option value="Pesca a Mosca">Pesca a Mosca</option>
+                            <option value="Altro">Altro</option>
+                        </select>
+                    </div>
+                </div>
+
+                <!-- Regione e Nome Spot -->
+                <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                    <div>
+                        <label class="block text-xs font-semibold text-slate-300 mb-1">Regione *</label>
+                        <select id="catchRegion" required class="w-full bg-slate-800 border border-slate-700 rounded-xl px-3 py-2.5 text-sm text-white focus:outline-none focus:border-sky-500">
+                            <option value="Abruzzo">Abruzzo</option>
+                            <option value="Basilicata">Basilicata</option>
+                            <option value="Calabria">Calabria</option>
+                            <option value="Campania">Campania</option>
+                            <option value="Emilia-Romagna">Emilia-Romagna</option>
+                            <option value="Friuli-Venezia Giulia">Friuli-Venezia Giulia</option>
+                            <option value="Lazio" selected>Lazio</option>
+                            <option value="Liguria">Liguria</option>
+                            <option value="Lombardia">Lombardia</option>
+                            <option value="Marche">Marche</option>
+                            <option value="Molise">Molise</option>
+                            <option value="Piemonte">Piemonte</option>
+                            <option value="Puglia">Puglia</option>
+                            <option value="Sardegna">Sardegna</option>
+                            <option value="Sicilia">Sicilia</option>
+                            <option value="Toscana">Toscana</option>
+                            <option value="Trentino-Alto Adige">Trentino-Alto Adige</option>
+                            <option value="Umbria">Umbria</option>
+                            <option value="Valle d'Aosta">Valle d'Aosta</option>
+                            <option value="Veneto">Veneto</option>
+                        </select>
+                    </div>
+                    <div>
+                        <label class="block text-xs font-semibold text-slate-300 mb-1">Nome Spot (opzionale)</label>
+                        <input type="text" id="catchSpotName" placeholder="Es. Scogliera Nord, Foce..." class="w-full bg-slate-800 border border-slate-700 rounded-xl px-3 py-2.5 text-sm text-white placeholder-slate-500 focus:outline-none focus:border-sky-500">
+                    </div>
+                </div>
+
+                <!-- Coordinate GPS -->
+                <div class="bg-slate-800/70 border border-slate-700 rounded-2xl p-3 space-y-2">
+                    <div class="flex items-center justify-between">
+                        <span class="text-xs font-semibold text-sky-400 flex items-center gap-1.5">
+                            <i data-lucide="map-pin" class="w-3.5 h-3.5"></i>
+                            Coordinate GPS dello Spot *
+                        </span>
+                        <button type="button" onclick="fillCurrentGpsInForm()" class="text-[11px] font-semibold text-emerald-400 hover:text-emerald-300 flex items-center gap-1">
+                            <i data-lucide="crosshair" class="w-3 h-3"></i>
+                            Usa GPS attuale
+                        </button>
+                    </div>
+                    <div class="grid grid-cols-2 gap-2">
+                        <div>
+                            <label class="block text-[10px] text-slate-400 mb-0.5">Latitudine</label>
+                            <input type="number" id="catchLat" step="any" required placeholder="41.9028" class="w-full bg-slate-900 border border-slate-700 rounded-xl px-2.5 py-2 text-xs text-white focus:outline-none focus:border-sky-500">
+                        </div>
+                        <div>
+                            <label class="block text-[10px] text-slate-400 mb-0.5">Longitudine</label>
+                            <input type="number" id="catchLng" step="any" required placeholder="12.4964" class="w-full bg-slate-900 border border-slate-700 rounded-xl px-2.5 py-2 text-xs text-white focus:outline-none focus:border-sky-500">
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Esca / Artificiale e Note -->
+                <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                    <div>
+                        <label class="block text-xs font-semibold text-slate-300 mb-1">Esca / Artificiale</label>
+                        <input type="text" id="catchBait" placeholder="Es. Minnow 120mm, Arenicola..." class="w-full bg-slate-800 border border-slate-700 rounded-xl px-3 py-2.5 text-sm text-white placeholder-slate-500 focus:outline-none focus:border-sky-500">
+                    </div>
+                    <div>
+                        <label class="block text-xs font-semibold text-slate-300 mb-1">Data e Ora Cattura</label>
+                        <input type="datetime-local" id="catchDate" class="w-full bg-slate-800 border border-slate-700 rounded-xl px-3 py-2.5 text-xs text-white focus:outline-none focus:border-sky-500">
+                    </div>
+                </div>
+
+                <div>
+                    <label class="block text-xs font-semibold text-slate-300 mb-1">Note / Condizioni meteo-marea</label>
+                    <textarea id="catchNotes" rows="2" placeholder="Acqua velata, marea montante, vento di maestrale..." class="w-full bg-slate-800 border border-slate-700 rounded-xl px-3 py-2 text-sm text-white placeholder-slate-500 focus:outline-none focus:border-sky-500"></textarea>
+                </div>
+
+                <!-- Foto Cattura (Compressione Canvas max 1200px) -->
+                <div>
+                    <label class="block text-xs font-semibold text-slate-300 mb-1">Foto della Cattura (opzionale)</label>
+                    <label class="flex items-center justify-center gap-2 w-full py-3 px-4 rounded-2xl border-2 border-dashed border-slate-700 hover:border-sky-500 bg-slate-800/50 cursor-pointer transition">
+                        <i data-lucide="camera" class="w-5 h-5 text-sky-400"></i>
+                        <span id="photoFileLabel" class="text-xs font-medium text-slate-300">Scatta o scegli una foto dalla galleria</span>
+                        <input type="file" id="catchPhotoInput" accept="image/*" onchange="previewCatchPhoto(event)" class="hidden">
+                    </label>
+                    <div id="photoPreviewContainer" class="hidden mt-2 relative rounded-2xl overflow-hidden border border-slate-700 max-h-44">
+                        <img id="photoPreviewImg" src="" alt="Anteprima cattura" class="w-full h-44 object-cover">
+                        <button type="button" onclick="clearCatchPhoto()" class="absolute top-2 right-2 p-1.5 rounded-full bg-slate-950/80 text-white hover:bg-red-600 transition">
+                            <i data-lucide="trash-2" class="w-4 h-4"></i>
+                        </button>
+                    </div>
+                </div>
+
+                <!-- Submit -->
+                <div class="pt-2 flex items-center justify-end gap-2.5">
+                    <button type="button" onclick="closeModal('newCatchModal')" class="px-4 py-2.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-300 text-xs font-semibold">
+                        Annulla
+                    </button>
+                    <button type="submit" id="saveCatchSubmitBtn" class="px-5 py-2.5 rounded-xl bg-gradient-to-r from-sky-500 to-emerald-600 hover:from-sky-600 hover:to-emerald-700 text-white text-xs font-extrabold shadow-lg flex items-center gap-2">
+                        <i data-lucide="cloud-upload" class="w-4 h-4"></i>
+                        <span>Pubblica Cattura</span>
                     </button>
                 </div>
-            </header>
-<!-- ... existing code ... -->
+            </form>
+        </div>
+    </div>
+
+    <!-- ===================================================================== -->
+    <!-- MODALE 3: AUTENTICAZIONE SUPABASE (Accedi / Registrati)               -->
+    <!-- ===================================================================== -->
+    <div id="authModal" class="fixed inset-0 bg-slate-950/80 backdrop-blur-xs z-50 hidden items-center justify-center p-4">
+        <div class="bg-slate-900 border border-slate-700 rounded-3xl w-full max-w-md p-5 sm:p-6 shadow-2xl space-y-5">
+            <div class="flex items-center justify-between">
+                <div class="flex items-center gap-2.5">
+                    <div class="w-9 h-9 rounded-xl bg-sky-500/20 text-sky-400 flex items-center justify-center">
+                        <i data-lucide="shield-check" class="w-5 h-5"></i>
+                    </div>
+                    <div>
+                        <h2 id="authModalTitle" class="text-lg font-extrabold text-white">Accedi a PescaSpot</h2>
+                        <p class="text-xs text-slate-400">Sincronizza le tue catture nel cloud</p>
+                    </div>
+                </div>
+                <button type="button" onclick="closeModal('authModal')" class="p-2 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-300">
+                    <i data-lucide="x" class="w-5 h-5"></i>
+                </button>
+            </div>
+
+            <!-- Switch Accedi / Registrati -->
+            <div class="grid grid-cols-2 gap-1.5 bg-slate-950 p-1 rounded-xl border border-slate-800">
+                <button type="button" id="tabLoginBtn" onclick="switchAuthTab('login')" class="py-2 rounded-lg text-xs font-bold bg-sky-600 text-white transition">
+                    Accedi
+                </button>
+                <button type="button" id="tabRegisterBtn" onclick="switchAuthTab('register')" class="py-2 rounded-lg text-xs font-semibold text-slate-400 hover:text-white transition">
+                    Registrati
+                </button>
+            </div>
+
+            <form id="authForm" onsubmit="submitAuthForm(event)" class="space-y-3.5">
+                <div id="registerNameGroup" class="hidden">
+                    <label class="block text-xs font-semibold text-slate-300 mb-1">Nome o Nickname Pescatore *</label>
+                    <input type="text" id="authDisplayName" placeholder="Es. MarcoSpinning88" class="w-full bg-slate-800 border border-slate-700 rounded-xl px-3.5 py-2.5 text-sm text-white placeholder-slate-500 focus:outline-none focus:border-sky-500">
+                </div>
+
+                <div>
+                    <label class="block text-xs font-semibold text-slate-300 mb-1">Indirizzo Email *</label>
+                    <input type="email" id="authEmail" required placeholder="nome@esempio.it" class="w-full bg-slate-800 border border-slate-700 rounded-xl px-3.5 py-2.5 text-sm text-white placeholder-slate-500 focus:outline-none focus:border-sky-500">
+                </div>
+
+                <div>
+                    <label class="block text-xs font-semibold text-slate-300 mb-1">Password (min. 6 caratteri) *</label>
+                    <input type="password" id="authPassword" required minlength="6" placeholder="••••••••" class="w-full bg-slate-800 border border-slate-700 rounded-xl px-3.5 py-2.5 text-sm text-white placeholder-slate-500 focus:outline-none focus:border-sky-500">
+                </div>
+
+                <button type="submit" id="authSubmitBtn" class="w-full py-3 rounded-xl bg-gradient-to-r from-sky-500 to-blue-600 hover:from-sky-600 hover:to-blue-700 text-white font-bold text-sm shadow-lg transition">
+                    Entra nel Cloud
+                </button>
+            </form>
+        </div>
+    </div>
+
+    <!-- ===================================================================== -->
+    <!-- MODALE 4: SEGNALAZIONE PROBLEMA / DIAGNOSTICA                         -->
+    <!-- ===================================================================== -->
+    <div id="bugModal" class="fixed inset-0 bg-slate-950/80 backdrop-blur-xs z-50 hidden items-center justify-center p-4">
+        <div class="bg-slate-900 border border-slate-700 rounded-3xl w-full max-w-md p-5 sm:p-6 shadow-2xl space-y-4">
+            <div class="flex items-center justify-between">
+                <h2 class="text-base sm:text-lg font-extrabold text-white flex items-center gap-2">
+                    <i data-lucide="bug" class="w-5 h-5 text-amber-400"></i>
+                    Segnala un problema
+                </h2>
+                <button type="button" onclick="closeModal('bugModal')" class="p-2 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-300">
+                    <i data-lucide="x" class="w-5 h-5"></i>
+                </button>
+            </div>
+
+            <p class="text-xs text-slate-300 leading-relaxed">
+                Descrivi cosa hai riscontrato durante i test su smartphone o desktop. Puoi copiare il report diagnostico completo negli appunti con un clic.
+            </p>
+
+            <textarea id="bugDescriptionInput" rows="3" placeholder="Scrivi qui cosa è successo..." class="w-full bg-slate-800 border border-slate-700 rounded-xl px-3 py-2.5 text-xs text-white placeholder-slate-500 focus:outline-none focus:border-amber-400"></textarea>
+
+            <pre id="bugDiagnosticBox" class="bg-slate-950 border border-slate-800 rounded-xl p-3 text-[10px] text-slate-400 overflow-x-auto"></pre>
+
+            <div class="flex items-center justify-end gap-2">
+                <button type="button" onclick="closeModal('bugModal')" class="px-4 py-2 rounded-xl bg-slate-800 text-slate-300 text-xs font-semibold">
+                    Chiudi
+                </button>
+                <button type="button" onclick="copyBugReport()" class="px-4 py-2 rounded-xl bg-amber-500 hover:bg-amber-600 text-slate-950 font-bold text-xs flex items-center gap-1.5">
+                    <i data-lucide="copy" class="w-3.5 h-3.5"></i>
+                    Copia Report Diagnostico
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- ===================================================================== -->
+    <!-- MODALE 5: CONFERMA ELIMINAZIONE CATTURA                               -->
+    <!-- ===================================================================== -->
+    <div id="deleteConfirmModal" class="fixed inset-0 bg-slate-950/80 backdrop-blur-xs z-50 hidden items-center justify-center p-4">
+        <div class="bg-slate-900 border border-slate-700 rounded-3xl w-full max-w-sm p-5 shadow-2xl space-y-4 text-center">
+            <div class="w-12 h-12 rounded-2xl bg-red-500/20 text-red-400 flex items-center justify-center mx-auto">
+                <i data-lucide="trash-2" class="w-6 h-6"></i>
+            </div>
+            <div>
+                <h3 class="text-base font-extrabold text-white">Eliminare questa cattura?</h3>
+                <p class="text-xs text-slate-400 mt-1">La cattura verrà rimossa definitivamente dal database condiviso.</p>
+            </div>
+            <div class="grid grid-cols-2 gap-2.5 pt-1">
+                <button type="button" onclick="closeModal('deleteConfirmModal')" class="py-2.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-300 text-xs font-semibold">
+                    Annulla
+                </button>
+                <button type="button" onclick="confirmDeleteCatch()" class="py-2.5 rounded-xl bg-red-600 hover:bg-red-700 text-white text-xs font-bold">
+                    Sì, elimina
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- ===================================================================== -->
+    <!-- TOAST NOTIFICHE NON INVASIVE                                          -->
+    <!-- ===================================================================== -->
+    <div id="toastContainer" class="fixed bottom-5 left-1/2 -translate-x-1/2 z-50 flex flex-col items-center gap-2 pointer-events-none w-[92vw] max-w-md"></div>
+
+    <!-- ===================================================================== -->
+    <!-- LOGICA JAVASCRIPT COMPLETA (Supabase + Leaflet + Cluster 200m)        -->
+    <!-- ===================================================================== -->
+    <script>
+        // =========================================================================
+        // 1. CONFIGURAZIONE SUPABASE E STATO GLOBALE
+        // =========================================================================
+        const SUPABASE_URL = 'https://shqhbsrvtejzecltbiek.supabase.co';
+        const SUPABASE_ANON_KEY = 'sb_publishable_kpMWbxL7I0JZFgTPoBGUiQ_5zJ66_S8';
+        const STORAGE_BUCKET = 'catch-photos';
+        const CLUSTER_RADIUS_METERS = 200;
+
+        let supabaseClient = null;
+        try {
+            if (window.supabase && typeof window.supabase.createClient === 'function') {
+                supabaseClient = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+            }
+        } catch (e) {
+            console.error('Errore inizializzazione client Supabase:', e);
+        }
+
+        let map = null;
+        let clustersLayerGroup = null;
+        let userGpsMarker = null;
+        let longPressMarker = null;
+
+        let currentUser = null;
+        let authMode = 'login';
+        let ownerFilterMode = 'all'; // 'all' | 'mine'
+
+        let catches = [];
+        let filteredCatches = [];
         let activeClustersMap = {};
         let pendingDeleteCatchId = null;
+
+        // Controllo anti-blocco per sincronizzazione cloud
         let isSyncingCatches = false;
         let syncGuardTimeoutId = null;
         let queuedSyncFeedback = false;
 
+        // =========================================================================
+        // 2. UTILITÀ UI, ICONE, TOAST E SICUREZZA XSS
+        // =========================================================================
         function refreshIcons() {
             if (window.lucide && typeof window.lucide.createIcons === 'function') {
                 window.lucide.createIcons();
             }
         }
 
-        // Gestisce in modo sicuro lo stato visivo dell'icona di sincronizzazione cloud
+        function escapeHtml(value) {
+            if (value === null || value === undefined) return '';
+            return String(value)
+                .replace(/&/g, '&amp;')
+                .replace(/</g, '&lt;')
+                .replace(/>/g, '&gt;')
+                .replace(/"/g, '&quot;')
+                .replace(/'/g, '&#39;');
+        }
+
+        function showToast(message, type = 'info') {
+            const container = document.getElementById('toastContainer');
+            if (!container) return;
+
+            const colors = {
+                info: 'bg-slate-900/95 border-sky-500/60 text-white',
+                success: 'bg-emerald-950/95 border-emerald-500/70 text-emerald-100',
+                error: 'bg-red-950/95 border-red-500/70 text-red-100'
+            };
+
+            const toast = document.createElement('div');
+            toast.className = `pointer-events-auto px-4 py-2.5 rounded-2xl border shadow-2xl text-xs font-semibold backdrop-blur-md transition-all duration-200 ${colors[type] || colors.info}`;
+            toast.textContent = message;
+            container.appendChild(toast);
+
+            setTimeout(() => {
+                toast.style.opacity = '0';
+                toast.style.transform = 'translateY(8px)';
+                setTimeout(() => toast.remove(), 220);
+            }, 3400);
+        }
+
+        function openModal(id) {
+            const el = document.getElementById(id);
+            if (!el) return;
+            el.classList.remove('hidden');
+            el.classList.add('flex');
+            refreshIcons();
+        }
+
+        function closeModal(id) {
+            const el = document.getElementById(id);
+            if (!el) return;
+            el.classList.add('hidden');
+            el.classList.remove('flex');
+        }
+
+        function toggleSidebar(forceState) {
+            const sidebar = document.getElementById('appSidebar');
+            const backdrop = document.getElementById('sidebarBackdrop');
+            if (!sidebar || !backdrop) return;
+
+            const isClosed = sidebar.classList.contains('-translate-x-full');
+            const shouldOpen = typeof forceState === 'boolean' ? forceState : isClosed;
+
+            if (shouldOpen) {
+                sidebar.classList.remove('-translate-x-full');
+                backdrop.classList.remove('hidden');
+            } else {
+                sidebar.classList.add('-translate-x-full');
+                backdrop.classList.add('hidden');
+            }
+        }
+
+        // Gestione protetta dello spin delle frecce cloud
         function setCloudSyncSpinning(spinning) {
             const syncIcon = document.getElementById('syncIcon');
             const syncBtn = document.getElementById('syncCloudBtn');
@@ -82,14 +824,19 @@
             }
 
             if (syncIcon) {
-                syncIcon.classList.toggle('animate-spin', Boolean(spinning));
+                if (spinning) {
+                    syncIcon.classList.add('animate-spin');
+                } else {
+                    syncIcon.classList.remove('animate-spin');
+                }
             }
+
             if (syncBtn) {
                 syncBtn.disabled = Boolean(spinning);
                 syncBtn.classList.toggle('opacity-70', Boolean(spinning));
             }
 
-            // Fail-safe di sicurezza per evitare che l'animazione resti mai bloccata
+            // Timer di sicurezza: ferma sempre lo spin entro 8.5s in ogni circostanza
             if (spinning) {
                 syncGuardTimeoutId = setTimeout(() => {
                     isSyncingCatches = false;
@@ -98,10 +845,25 @@
                         syncBtn.disabled = false;
                         syncBtn.classList.remove('opacity-70');
                     }
-                }, 9000);
+                }, 8500);
             }
         }
-<!-- ... existing code ... -->
+
+        // =========================================================================
+        // 3. AUTENTICAZIONE UTENTI SUPABASE
+        // =========================================================================
+        function getUserDisplayName(user) {
+            if (!user) return 'Pescatore';
+            const meta = user.user_metadata || {};
+            if (meta.display_name && String(meta.display_name).trim()) {
+                return String(meta.display_name).trim();
+            }
+            if (user.email) {
+                return user.email.split('@')[0];
+            }
+            return 'Pescatore';
+        }
+
         function updateAuthHeaderUI() {
             const slot = document.getElementById('authHeaderSlot');
             if (!slot) return;
@@ -109,17 +871,17 @@
             if (currentUser) {
                 const name = escapeHtml(getUserDisplayName(currentUser));
                 slot.innerHTML = `
-                    <div class="flex items-center gap-1 bg-nautical-900 border border-nautical-700 rounded-xl pl-2 pr-1 py-1 shrink-0">
+                    <div class="flex items-center gap-1.5 bg-slate-800 border border-slate-700 rounded-xl pl-2 pr-1 py-1 shrink-0">
                         <span class="w-2 h-2 rounded-full bg-emerald-400 shrink-0"></span>
-                        <span class="text-[11px] sm:text-xs font-semibold text-sky-200 max-w-[64px] sm:max-w-[120px] truncate">${name}</span>
-                        <button type="button" onclick="handleLogout()" title="Esci dall'account" class="px-1.5 sm:px-2 py-0.5 sm:py-1 rounded-lg bg-nautical-800 hover:bg-red-900/70 text-slate-300 hover:text-white text-[10px] sm:text-[11px] font-semibold transition shrink-0">
+                        <span class="text-[11px] sm:text-xs font-semibold text-sky-300 max-w-[68px] sm:max-w-[120px] truncate">${name}</span>
+                        <button type="button" onclick="handleLogout()" title="Esci dall'account" class="px-1.5 sm:px-2 py-0.5 sm:py-1 rounded-lg bg-slate-700 hover:bg-red-900/80 text-slate-200 hover:text-white text-[10px] sm:text-[11px] font-semibold transition shrink-0">
                             Esci
                         </button>
                     </div>
                 `;
             } else {
                 slot.innerHTML = `
-                    <button type="button" onclick="openAuthModal('login')" class="px-2 py-1.5 sm:px-3.5 sm:py-2 rounded-xl bg-nautical-800 hover:bg-nautical-700 text-sky-200 border border-nautical-700 text-[11px] sm:text-xs font-semibold transition flex items-center gap-1 whitespace-nowrap">
+                    <button type="button" onclick="openAuthModal('login')" class="px-2.5 py-2 sm:px-3.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-sky-300 border border-slate-700 text-xs font-semibold transition flex items-center gap-1.5 whitespace-nowrap">
                         <i data-lucide="user" class="w-3.5 h-3.5 shrink-0"></i>
                         <span>Accedi</span>
                     </button>
@@ -127,12 +889,267 @@
             }
             refreshIcons();
         }
-<!-- ... existing code ... -->
+
+        function openAuthModal(mode = 'login') {
+            switchAuthTab(mode);
+            openModal('authModal');
+        }
+
+        function switchAuthTab(mode) {
+            authMode = mode;
+            const tabLogin = document.getElementById('tabLoginBtn');
+            const tabReg = document.getElementById('tabRegisterBtn');
+            const nameGroup = document.getElementById('registerNameGroup');
+            const nameInput = document.getElementById('authDisplayName');
+            const title = document.getElementById('authModalTitle');
+            const submitBtn = document.getElementById('authSubmitBtn');
+
+            if (mode === 'register') {
+                tabReg.className = 'py-2 rounded-lg text-xs font-bold bg-sky-600 text-white transition';
+                tabLogin.className = 'py-2 rounded-lg text-xs font-semibold text-slate-400 hover:text-white transition';
+                nameGroup.classList.remove('hidden');
+                nameInput.required = true;
+                title.textContent = 'Crea Account Pescatore';
+                submitBtn.textContent = 'Registrati e Entra';
+            } else {
+                tabLogin.className = 'py-2 rounded-lg text-xs font-bold bg-sky-600 text-white transition';
+                tabReg.className = 'py-2 rounded-lg text-xs font-semibold text-slate-400 hover:text-white transition';
+                nameGroup.classList.add('hidden');
+                nameInput.required = false;
+                title.textContent = 'Accedi a PescaSpot';
+                submitBtn.textContent = 'Entra nel Cloud';
+            }
+        }
+
+        async function submitAuthForm(event) {
+            event.preventDefault();
+            if (!supabaseClient) {
+                showToast('Client Supabase non disponibile.', 'error');
+                return;
+            }
+
+            const email = document.getElementById('authEmail').value.trim();
+            const password = document.getElementById('authPassword').value;
+            const displayName = document.getElementById('authDisplayName').value.trim();
+            const submitBtn = document.getElementById('authSubmitBtn');
+
+            submitBtn.disabled = true;
+            const originalText = submitBtn.textContent;
+            submitBtn.textContent = 'Attendere...';
+
+            try {
+                if (authMode === 'register') {
+                    const { data, error } = await supabaseClient.auth.signUp({
+                        email,
+                        password,
+                        options: {
+                            data: {
+                                display_name: displayName || email.split('@')[0]
+                            }
+                        }
+                    });
+                    if (error) throw error;
+
+                    if (data.session && data.user) {
+                        currentUser = data.user;
+                        updateAuthHeaderUI();
+                        closeModal('authModal');
+                        showToast(`Benvenuto su PescaSpot Italia, ${getUserDisplayName(currentUser)}!`, 'success');
+                    } else {
+                        closeModal('authModal');
+                        showToast('Registrazione completata! Controlla la tua email per confermare l’account.', 'success');
+                    }
+                } else {
+                    const { data, error } = await supabaseClient.auth.signInWithPassword({
+                        email,
+                        password
+                    });
+                    if (error) throw error;
+
+                    currentUser = data.user;
+                    updateAuthHeaderUI();
+                    closeModal('authModal');
+                    showToast(`Bentornato, ${getUserDisplayName(currentUser)}!`, 'success');
+                    applyFilters();
+                }
+            } catch (err) {
+                console.error('Errore autenticazione:', err);
+                showToast(err.message || 'Errore durante l’accesso.', 'error');
+            } finally {
+                submitBtn.disabled = false;
+                submitBtn.textContent = originalText;
+            }
+        }
+
+        async function handleLogout() {
+            if (!supabaseClient) return;
+            try {
+                await supabaseClient.auth.signOut();
+                currentUser = null;
+                updateAuthHeaderUI();
+                if (ownerFilterMode === 'mine') {
+                    setOwnerFilter('all');
+                } else {
+                    applyFilters();
+                }
+                showToast('Disconnessione effettuata.');
+            } catch (err) {
+                showToast('Errore durante la disconnessione.', 'error');
+            }
+        }
+
         // =========================================================================
-        // 4. LETTURA, INSERIMENTO ED ELIMINAZIONE SU SUPABASE
+        // 4. INIZIALIZZAZIONE MAPPA SATELLITARE LEAFLET + LONG-PRESS
+        // =========================================================================
+        function initMap() {
+            map = L.map('map', {
+                center: [42.1, 12.8],
+                zoom: 6,
+                zoomControl: false
+            });
+
+            L.control.zoom({ position: 'topright' }).addTo(map);
+
+            // Base Satellitare Esri World Imagery
+            L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}', {
+                attribution: 'Tiles &copy; Esri &mdash; Source: Esri, Maxar, Earthstar Geographics',
+                maxZoom: 19
+            }).addTo(map);
+
+            // Overlay Confini e Toponimi (etichette località/strade/acque)
+            L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/Reference/World_Boundaries_and_Places/MapServer/tile/{z}/{y}/{x}', {
+                maxZoom: 19,
+                opacity: 0.9
+            }).addTo(map);
+
+            clustersLayerGroup = L.layerGroup().addTo(map);
+
+            // Supporto Pressione Prolungata (Touch & Mouse) + Tasto destro
+            setupMapLongPress();
+        }
+
+        function setupMapLongPress() {
+            let pressTimer = null;
+            let startPoint = null;
+
+            const cancelPress = () => {
+                if (pressTimer) {
+                    clearTimeout(pressTimer);
+                    pressTimer = null;
+                }
+            };
+
+            const startPress = (latlng, containerPoint) => {
+                cancelPress();
+                startPoint = containerPoint;
+                pressTimer = setTimeout(() => {
+                    triggerSpotSelectionOnMap(latlng);
+                }, 620);
+            };
+
+            map.on('mousedown', (e) => {
+                if (e.originalEvent && e.originalEvent.button !== 0) return;
+                startPress(e.latlng, e.containerPoint);
+            });
+
+            map.on('mousemove', (e) => {
+                if (!startPoint || !pressTimer) return;
+                const dist = Math.hypot(e.containerPoint.x - startPoint.x, e.containerPoint.y - startPoint.y);
+                if (dist > 10) cancelPress();
+            });
+
+            map.on('mouseup dragstart zoomstart movestart', cancelPress);
+
+            // Supporto nativo touch su container mappa
+            const mapContainer = map.getContainer();
+            mapContainer.addEventListener('touchstart', (e) => {
+                if (e.touches.length !== 1) {
+                    cancelPress();
+                    return;
+                }
+                const touch = e.touches[0];
+                const rect = mapContainer.getBoundingClientRect();
+                const pt = L.point(touch.clientX - rect.left, touch.clientY - rect.top);
+                const latlng = map.containerPointToLatLng(pt);
+                startPress(latlng, pt);
+            }, { passive: true });
+
+            mapContainer.addEventListener('touchmove', (e) => {
+                if (!startPoint || !pressTimer || e.touches.length !== 1) return;
+                const touch = e.touches[0];
+                const rect = mapContainer.getBoundingClientRect();
+                const pt = L.point(touch.clientX - rect.left, touch.clientY - rect.top);
+                const dist = Math.hypot(pt.x - startPoint.x, pt.y - startPoint.y);
+                if (dist > 12) cancelPress();
+            }, { passive: true });
+
+            mapContainer.addEventListener('touchend', cancelPress, { passive: true });
+            mapContainer.addEventListener('touchcancel', cancelPress, { passive: true });
+
+            // Tasto destro desktop
+            map.on('contextmenu', (e) => {
+                triggerSpotSelectionOnMap(e.latlng);
+            });
+        }
+
+        function triggerSpotSelectionOnMap(latlng) {
+            if (longPressMarker) {
+                map.removeLayer(longPressMarker);
+            }
+            longPressMarker = L.circleMarker(latlng, {
+                radius: 9,
+                color: '#ffffff',
+                weight: 2.5,
+                fillColor: '#f97316',
+                fillOpacity: 0.95
+            }).addTo(map);
+
+            handleNewCatchTrigger(latlng.lat, latlng.lng);
+        }
+
+        function resetItalyView() {
+            if (!map) return;
+            map.flyTo([42.1, 12.8], 6, { duration: 0.9 });
+        }
+
+        function locateUserOnMap() {
+            if (!navigator.geolocation) {
+                showToast('Geolocalizzazione GPS non supportata dal browser.', 'error');
+                return;
+            }
+            showToast('Ricerca posizione GPS in corso...');
+            navigator.geolocation.getCurrentPosition(
+                (pos) => {
+                    const { latitude, longitude } = pos.coords;
+                    if (userGpsMarker) map.removeLayer(userGpsMarker);
+
+                    const gpsIcon = L.divIcon({
+                        className: '',
+                        html: `<div class="relative w-4 h-4"><span class="user-gps-pulse"></span><span class="block w-4 h-4 rounded-full bg-sky-400 border-2 border-white shadow-lg"></span></div>`,
+                        iconSize: [16, 16],
+                        iconAnchor: [8, 8]
+                    });
+
+                    userGpsMarker = L.marker([latitude, longitude], { icon: gpsIcon }).addTo(map);
+                    map.flyTo([latitude, longitude], 14, { duration: 1.1 });
+                    showToast('Posizione GPS trovata!', 'success');
+                },
+                () => {
+                    showToast('Permesso GPS negato o segnale non disponibile.', 'error');
+                },
+                { enableHighAccuracy: true, timeout: 8000 }
+            );
+        }
+
+        // =========================================================================
+        // 5. LETTURA, INSERIMENTO ED ELIMINAZIONE CATTURE SU SUPABASE
         // =========================================================================
         async function fetchCatchesFromSupabase(showFeedback = false) {
-            // Evita richieste sovrapposte: se una sincronizzazione è già in corso, accoda l'eventuale richiesta esplicita
+            if (!supabaseClient) {
+                setCloudSyncSpinning(false);
+                return;
+            }
+
             if (isSyncingCatches) {
                 if (showFeedback) queuedSyncFeedback = true;
                 return;
@@ -144,7 +1161,7 @@
             const controller = typeof AbortController !== 'undefined' ? new AbortController() : null;
             const timeoutId = setTimeout(() => {
                 if (controller) controller.abort();
-            }, 8500);
+            }, 8000);
 
             try {
                 let query = supabaseClient
@@ -160,27 +1177,20 @@
                 if (error) throw error;
 
                 catches = Array.isArray(data) ? data : [];
-
-                const emptyBanner = document.getElementById('emptyDbBanner');
-                if (emptyBanner) {
-                    emptyBanner.classList.toggle('hidden', catches.length > 0);
-                }
-
+                updateCloudStatusIndicator(true);
                 applyFilters();
+
                 if (showFeedback) {
-                    showToast(`Sincronizzate ${catches.length} catture dal cloud`);
+                    showToast(`Sincronizzate ${catches.length} catture dal cloud`, 'success');
                 }
             } catch (err) {
-                console.error('Errore Supabase fetchCatches:', err);
+                console.error('Errore lettura catture Supabase:', err);
+                updateCloudStatusIndicator(false);
                 const isTimeout = err && (err.name === 'AbortError' || String(err.message || '').toLowerCase().includes('abort'));
-                const counterEl = document.getElementById('filteredCounterLabel');
-                if (counterEl) {
-                    counterEl.textContent = isTimeout ? 'Timeout sincronizzazione cloud' : 'Errore connessione cloud';
-                }
                 showToast(
                     isTimeout
-                        ? 'Tempo scaduto durante il caricamento da Supabase: riprova tra poco.'
-                        : 'Impossibile caricare le catture da Supabase: ' + (err.message || 'riprova'),
+                        ? 'Timeout sincronizzazione cloud: riprova.'
+                        : 'Impossibile aggiornare dal cloud: ' + (err.message || 'errore di rete'),
                     'error'
                 );
             } finally {
@@ -195,4 +1205,532 @@
                 }
             }
         }
-<!-- ... existing code ... -->
+
+        function updateCloudStatusIndicator(isOnline) {
+            const dot = document.getElementById('cloudStatusDot');
+            if (!dot) return;
+            dot.className = isOnline
+                ? 'w-2 h-2 rounded-full bg-emerald-400'
+                : 'w-2 h-2 rounded-full bg-amber-400';
+        }
+
+        // =========================================================================
+        // 6. FILTRI E CLUSTERING DINAMICO A 200 METRI
+        // =========================================================================
+        function setOwnerFilter(mode) {
+            if (mode === 'mine' && !currentUser) {
+                showToast('Accedi per filtrare solo le tue catture.', 'info');
+                openAuthModal('login');
+                return;
+            }
+            ownerFilterMode = mode;
+
+            const btnAll = document.getElementById('filterOwnerAll');
+            const btnMine = document.getElementById('filterOwnerMine');
+            if (mode === 'mine') {
+                btnMine.className = 'py-2 px-2.5 rounded-lg text-xs font-bold bg-sky-600 text-white shadow transition';
+                btnAll.className = 'py-2 px-2.5 rounded-lg text-xs font-semibold text-slate-400 hover:text-white transition';
+            } else {
+                btnAll.className = 'py-2 px-2.5 rounded-lg text-xs font-bold bg-sky-600 text-white shadow transition';
+                btnMine.className = 'py-2 px-2.5 rounded-lg text-xs font-semibold text-slate-400 hover:text-white transition';
+            }
+            applyFilters();
+        }
+
+        function resetFilters() {
+            document.getElementById('filterEnvironment').value = '';
+            document.getElementById('filterRegion').value = '';
+            document.getElementById('filterTechnique').value = '';
+            setOwnerFilter('all');
+        }
+
+        function applyFilters() {
+            const env = document.getElementById('filterEnvironment').value;
+            const region = document.getElementById('filterRegion').value;
+            const tech = document.getElementById('filterTechnique').value;
+
+            filteredCatches = catches.filter((item) => {
+                if (ownerFilterMode === 'mine' && currentUser && item.user_id !== currentUser.id) return false;
+                if (env && item.environment !== env) return false;
+                if (region && item.region !== region) return false;
+                if (tech && item.technique !== tech) return false;
+                return Number.isFinite(Number(item.lat)) && Number.isFinite(Number(item.lng));
+            });
+
+            renderClustersOnMap();
+        }
+
+        function haversineMeters(lat1, lng1, lat2, lng2) {
+            const R = 6371000;
+            const toRad = (deg) => (deg * Math.PI) / 180;
+            const dLat = toRad(lat2 - lat1);
+            const dLng = toRad(lng2 - lng1);
+            const a =
+                Math.sin(dLat / 2) * Math.sin(dLat / 2) +
+                Math.cos(toRad(lat1)) * Math.cos(toRad(lat2)) *
+                Math.sin(dLng / 2) * Math.sin(dLng / 2);
+            return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+        }
+
+        function buildSpotClusters(items) {
+            // Ordina per peso decrescente così il perno del cluster è il Record dello Spot
+            const sorted = [...items].sort((a, b) => Number(b.weight_kg || 0) - Number(a.weight_kg || 0));
+            const clusters = [];
+
+            sorted.forEach((catchItem) => {
+                const lat = Number(catchItem.lat);
+                const lng = Number(catchItem.lng);
+
+                let targetCluster = null;
+                for (const cluster of clusters) {
+                    const dist = haversineMeters(cluster.centerLat, cluster.centerLng, lat, lng);
+                    if (dist <= CLUSTER_RADIUS_METERS) {
+                        targetCluster = cluster;
+                        break;
+                    }
+                }
+
+                if (targetCluster) {
+                    targetCluster.catches.push(catchItem);
+                } else {
+                    clusters.push({
+                        id: 'spot_' + catchItem.id,
+                        centerLat: lat,
+                        centerLng: lng,
+                        catches: [catchItem]
+                    });
+                }
+            });
+
+            return clusters;
+        }
+
+        function renderClustersOnMap() {
+            if (!clustersLayerGroup) return;
+            clustersLayerGroup.clearLayers();
+            activeClustersMap = {};
+
+            const clusters = buildSpotClusters(filteredCatches);
+
+            // Aggiorna contatori UI
+            document.getElementById('headerStatCatches').textContent = filteredCatches.length;
+            document.getElementById('headerStatSpots').textContent = clusters.length;
+            document.getElementById('sideStatCatches').textContent = filteredCatches.length;
+            document.getElementById('sideStatSpots').textContent = clusters.length;
+
+            const counterLabel = document.getElementById('filteredCounterLabel');
+            if (counterLabel) {
+                counterLabel.textContent = filteredCatches.length > 0
+                    ? `${filteredCatches.length} catture in ${clusters.length} spot • Tocca un cerchio per i record`
+                    : 'Nessuna cattura qui • Tieni premuto sulla mappa per aggiungerla';
+            }
+
+            clusters.forEach((cluster) => {
+                activeClustersMap[cluster.id] = cluster;
+                const count = cluster.catches.length;
+
+                let bgColor = '#0ea5e9'; // 1 cattura (sky-500)
+                let size = 34;
+                if (count >= 5) {
+                    bgColor = '#ea580c'; // 5+ catture (orange-600)
+                    size = 44;
+                } else if (count >= 2) {
+                    bgColor = '#f59e0b'; // 2-4 catture (amber-500)
+                    size = 38;
+                }
+
+                const icon = L.divIcon({
+                    className: '',
+                    html: `<div class="spot-cluster-marker" style="width:${size}px;height:${size}px;background:${bgColor};font-size:${count >= 10 ? 12 : 14}px;">${count}</div>`,
+                    iconSize: [size, size],
+                    iconAnchor: [size / 2, size / 2]
+                });
+
+                const marker = L.marker([cluster.centerLat, cluster.centerLng], { icon });
+                marker.on('click', () => openSpotLeaderboardModal(cluster.id));
+                clustersLayerGroup.addLayer(marker);
+            });
+        }
+
+        // =========================================================================
+        // 7. MODALE CLASSIFICA & RECORD DELLO SPOT
+        // =========================================================================
+        function openSpotLeaderboardModal(clusterId) {
+            const cluster = activeClustersMap[clusterId];
+            if (!cluster) return;
+
+            const sortedCatches = [...cluster.catches].sort(
+                (a, b) => Number(b.weight_kg || 0) - Number(a.weight_kg || 0)
+            );
+
+            const namedSpot = sortedCatches.find((c) => c.spot_name && c.spot_name.trim());
+            const spotTitle = namedSpot
+                ? namedSpot.spot_name.trim()
+                : `Spot ${sortedCatches[0].environment} (${sortedCatches[0].region})`;
+
+            document.getElementById('spotModalTitle').textContent = spotTitle;
+            document.getElementById('spotModalCountBadge').textContent =
+                sortedCatches.length === 1 ? '1 cattura' : `${sortedCatches.length} catture`;
+            document.getElementById('spotModalCoords').textContent =
+                `Lat: ${cluster.centerLat.toFixed(5)} • Lng: ${cluster.centerLng.toFixed(5)}`;
+
+            const addHereBtn = document.getElementById('spotModalAddHereBtn');
+            addHereBtn.onclick = () => {
+                closeModal('spotModal');
+                handleNewCatchTrigger(cluster.centerLat, cluster.centerLng);
+            };
+
+            const listEl = document.getElementById('spotModalList');
+            listEl.innerHTML = sortedCatches.map((item, idx) => {
+                const isRecord = idx === 0;
+                const isMine = currentUser && item.user_id === currentUser.id;
+                const weightFormatted = Number(item.weight_kg || 0).toFixed(2);
+                const dateStr = item.caught_at
+                    ? new Date(item.caught_at).toLocaleDateString('it-IT', { day: '2-digit', month: 'short', year: 'numeric' })
+                    : '';
+
+                return `
+                    <div class="rounded-2xl border ${isRecord ? 'bg-gradient-to-br from-amber-950/50 via-slate-800/90 to-slate-900 border-amber-500/60 shadow-lg' : 'bg-slate-800/75 border-slate-700'} p-3.5 space-y-2.5">
+                        <div class="flex items-start justify-between gap-2">
+                            <div class="flex items-center gap-2 min-w-0">
+                                <span class="w-7 h-7 rounded-xl ${isRecord ? 'bg-amber-500 text-slate-950' : 'bg-slate-700 text-slate-200'} font-extrabold text-xs flex items-center justify-center shrink-0">
+                                    #${idx + 1}
+                                </span>
+                                <div class="min-w-0">
+                                    ${isRecord ? '<span class="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-extrabold bg-amber-500/20 text-amber-300 border border-amber-400/40 mb-1">🏆 RECORD DELLO SPOT</span>' : ''}
+                                    <h4 class="font-extrabold text-sm sm:text-base text-white truncate">${escapeHtml(item.species)}</h4>
+                                </div>
+                            </div>
+
+                            <div class="text-right shrink-0">
+                                <span class="text-base sm:text-lg font-extrabold ${isRecord ? 'text-amber-300' : 'text-sky-400'}">${weightFormatted} kg</span>
+                                ${item.length_cm ? `<p class="text-[11px] text-slate-400">${escapeHtml(item.length_cm)} cm</p>` : ''}
+                            </div>
+                        </div>
+
+                        ${item.photo_url ? `
+                            <div class="rounded-xl overflow-hidden border border-slate-700/80 bg-slate-950 max-h-52">
+                                <img src="${escapeHtml(item.photo_url)}" alt="${escapeHtml(item.species)}" loading="lazy" onerror="this.parentElement.style.display='none'" class="w-full h-48 object-cover">
+                            </div>
+                        ` : ''}
+
+                        <div class="flex flex-wrap gap-1.5 text-[11px]">
+                            <span class="px-2.5 py-1 rounded-lg bg-slate-900/90 text-sky-300 border border-slate-700/80 font-medium">
+                                🎣 ${escapeHtml(item.technique)}
+                            </span>
+                            <span class="px-2.5 py-1 rounded-lg bg-slate-900/90 text-emerald-300 border border-slate-700/80 font-medium">
+                                🌊 ${escapeHtml(item.environment)} • ${escapeHtml(item.region)}
+                            </span>
+                            ${item.bait ? `
+                                <span class="px-2.5 py-1 rounded-lg bg-slate-900/90 text-slate-300 border border-slate-700/80">
+                                    Esca: ${escapeHtml(item.bait)}
+                                </span>
+                            ` : ''}
+                        </div>
+
+                        ${item.notes ? `<p class="text-xs text-slate-300 bg-slate-950/60 rounded-xl p-2.5 border border-slate-800">${escapeHtml(item.notes)}</p>` : ''}
+
+                        <div class="pt-1 border-t border-slate-700/60 flex items-center justify-between text-[11px] text-slate-400">
+                            <span>Pescatore: <strong class="text-slate-200">${escapeHtml(item.author_name)}</strong> ${dateStr ? `• ${dateStr}` : ''}</span>
+                            ${isMine ? `
+                                <button type="button" onclick="askDeleteCatch('${escapeHtml(item.id)}')" class="text-red-400 hover:text-red-300 font-semibold flex items-center gap-1">
+                                    <i data-lucide="trash-2" class="w-3.5 h-3.5"></i>
+                                    Elimina
+                                </button>
+                            ` : ''}
+                        </div>
+                    </div>
+                `;
+            }).join('');
+
+            openModal('spotModal');
+        }
+
+        // =========================================================================
+        // 8. NUOVA CATTURA, COMPRESSIONE FOTO SU CANVAS E UPLOAD SUPABASE
+        // =========================================================================
+        function handleNewCatchTrigger(prefillLat = null, prefillLng = null) {
+            if (!currentUser) {
+                showToast('Accedi o registrati per pubblicare una cattura nello spot.', 'info');
+                openAuthModal('login');
+                return;
+            }
+
+            document.getElementById('newCatchForm').reset();
+            clearCatchPhoto();
+
+            // Imposta data/ora corrente nel formato datetime-local
+            const now = new Date();
+            now.setMinutes(now.getMinutes() - now.getTimezoneOffset());
+            document.getElementById('catchDate').value = now.toISOString().slice(0, 16);
+
+            if (prefillLat !== null && prefillLng !== null) {
+                document.getElementById('catchLat').value = Number(prefillLat).toFixed(6);
+                document.getElementById('catchLng').value = Number(prefillLng).toFixed(6);
+            } else if (map) {
+                const center = map.getCenter();
+                document.getElementById('catchLat').value = center.lat.toFixed(6);
+                document.getElementById('catchLng').value = center.lng.toFixed(6);
+            }
+
+            openModal('newCatchModal');
+        }
+
+        function fillCurrentGpsInForm() {
+            if (!navigator.geolocation) {
+                showToast('GPS non disponibile su questo dispositivo.', 'error');
+                return;
+            }
+            showToast('Rilevamento coordinate GPS...');
+            navigator.geolocation.getCurrentPosition(
+                (pos) => {
+                    document.getElementById('catchLat').value = pos.coords.latitude.toFixed(6);
+                    document.getElementById('catchLng').value = pos.coords.longitude.toFixed(6);
+                    showToast('Coordinate GPS inserite!', 'success');
+                },
+                () => showToast('Impossibile leggere il GPS.', 'error'),
+                { enableHighAccuracy: true, timeout: 8000 }
+            );
+        }
+
+        function previewCatchPhoto(event) {
+            const file = event.target.files && event.target.files[0];
+            if (!file) return;
+
+            document.getElementById('photoFileLabel').textContent = file.name;
+            const reader = new FileReader();
+            reader.onload = (e) => {
+                document.getElementById('photoPreviewImg').src = e.target.result;
+                document.getElementById('photoPreviewContainer').classList.remove('hidden');
+            };
+            reader.readAsDataURL(file);
+        }
+
+        function clearCatchPhoto() {
+            const input = document.getElementById('catchPhotoInput');
+            if (input) input.value = '';
+            document.getElementById('photoFileLabel').textContent = 'Scatta o scegli una foto dalla galleria';
+            document.getElementById('photoPreviewImg').src = '';
+            document.getElementById('photoPreviewContainer').classList.add('hidden');
+        }
+
+        // Compressione immagine lato client su Canvas (max 1200px, JPEG 0.8)
+        function compressImageToBlob(file, maxDimension = 1200, quality = 0.8) {
+            return new Promise((resolve, reject) => {
+                const reader = new FileReader();
+                reader.onerror = () => reject(new Error('Errore lettura file immagine'));
+                reader.onload = (e) => {
+                    const img = new Image();
+                    img.onerror = () => reject(new Error('Immagine non valida'));
+                    img.onload = () => {
+                        let width = img.width;
+                        let height = img.height;
+
+                        if (width > maxDimension || height > maxDimension) {
+                            if (width > height) {
+                                height = Math.round((height * maxDimension) / width);
+                                width = maxDimension;
+                            } else {
+                                width = Math.round((width * maxDimension) / height);
+                                height = maxDimension;
+                            }
+                        }
+
+                        const canvas = document.createElement('canvas');
+                        canvas.width = width;
+                        canvas.height = height;
+                        const ctx = canvas.getContext('2d');
+                        ctx.drawImage(img, 0, 0, width, height);
+
+                        canvas.toBlob(
+                            (blob) => {
+                                if (blob) resolve(blob);
+                                else reject(new Error('Compressione immagine fallita'));
+                            },
+                            'image/jpeg',
+                            quality
+                        );
+                    };
+                    img.src = e.target.result;
+                };
+                reader.readAsDataURL(file);
+            });
+        }
+
+        async function uploadCatchPhotoIfPresent(userId) {
+            const input = document.getElementById('catchPhotoInput');
+            const file = input && input.files && input.files[0];
+            if (!file) return null;
+
+            const compressedBlob = await compressImageToBlob(file, 1200, 0.8);
+            const filePath = `${userId}/${Date.now()}_${Math.random().toString(36).slice(2, 8)}.jpg`;
+
+            const { error: uploadError } = await supabaseClient.storage
+                .from(STORAGE_BUCKET)
+                .upload(filePath, compressedBlob, {
+                    contentType: 'image/jpeg',
+                    upsert: false
+                });
+
+            if (uploadError) throw uploadError;
+
+            const { data: publicData } = supabaseClient.storage
+                .from(STORAGE_BUCKET)
+                .getPublicUrl(filePath);
+
+            return publicData ? publicData.publicUrl : null;
+        }
+
+        async function submitNewCatch(event) {
+            event.preventDefault();
+            if (!currentUser || !supabaseClient) {
+                openAuthModal('login');
+                return;
+            }
+
+            const submitBtn = document.getElementById('saveCatchSubmitBtn');
+            submitBtn.disabled = true;
+            const prevHtml = submitBtn.innerHTML;
+            submitBtn.innerHTML = '<span>Salvataggio in corso...</span>';
+
+            try {
+                const photoUrl = await uploadCatchPhotoIfPresent(currentUser.id);
+
+                const caughtAtRaw = document.getElementById('catchDate').value;
+                const lengthRaw = document.getElementById('catchLength').value;
+
+                const payload = {
+                    user_id: currentUser.id,
+                    author_name: getUserDisplayName(currentUser),
+                    species: document.getElementById('catchSpecies').value.trim(),
+                    weight_kg: parseFloat(document.getElementById('catchWeight').value),
+                    length_cm: lengthRaw ? parseFloat(lengthRaw) : null,
+                    environment: document.getElementById('catchEnvironment').value,
+                    technique: document.getElementById('catchTechnique').value,
+                    region: document.getElementById('catchRegion').value,
+                    spot_name: document.getElementById('catchSpotName').value.trim() || null,
+                    lat: parseFloat(document.getElementById('catchLat').value),
+                    lng: parseFloat(document.getElementById('catchLng').value),
+                    bait: document.getElementById('catchBait').value.trim() || null,
+                    notes: document.getElementById('catchNotes').value.trim() || null,
+                    photo_url: photoUrl,
+                    caught_at: caughtAtRaw ? new Date(caughtAtRaw).toISOString() : new Date().toISOString()
+                };
+
+                const { error } = await supabaseClient.from('catches').insert([payload]);
+                if (error) throw error;
+
+                if (longPressMarker) {
+                    map.removeLayer(longPressMarker);
+                    longPressMarker = null;
+                }
+
+                closeModal('newCatchModal');
+                showToast('Cattura salvata con successo nel cloud!', 'success');
+
+                map.flyTo([payload.lat, payload.lng], Math.max(map.getZoom(), 13), { duration: 0.9 });
+                await fetchCatchesFromSupabase(false);
+            } catch (err) {
+                console.error('Errore salvataggio cattura:', err);
+                showToast('Errore durante il salvataggio: ' + (err.message || 'riprova'), 'error');
+            } finally {
+                submitBtn.disabled = false;
+                submitBtn.innerHTML = prevHtml;
+                refreshIcons();
+            }
+        }
+
+        function askDeleteCatch(catchId) {
+            pendingDeleteCatchId = catchId;
+            openModal('deleteConfirmModal');
+        }
+
+        async function confirmDeleteCatch() {
+            if (!pendingDeleteCatchId || !supabaseClient) return;
+            const idToDelete = pendingDeleteCatchId;
+            pendingDeleteCatchId = null;
+
+            closeModal('deleteConfirmModal');
+            closeModal('spotModal');
+
+            try {
+                const { error } = await supabaseClient
+                    .from('catches')
+                    .delete()
+                    .eq('id', idToDelete);
+
+                if (error) throw error;
+                showToast('Cattura eliminata dal cloud.', 'success');
+                await fetchCatchesFromSupabase(false);
+            } catch (err) {
+                showToast('Impossibile eliminare la cattura: ' + (err.message || 'errore'), 'error');
+            }
+        }
+
+        // =========================================================================
+        // 9. DIAGNOSTICA & BUG REPORT
+        // =========================================================================
+        function openBugModal() {
+            toggleSidebar(false);
+            const diag = {
+                app: 'PescaSpot Italia Cloud PWA',
+                timestamp: new Date().toISOString(),
+                userLoggedIn: Boolean(currentUser),
+                catchesLoaded: catches.length,
+                viewport: `${window.innerWidth}x${window.innerHeight}`,
+                userAgent: navigator.userAgent
+            };
+            document.getElementById('bugDiagnosticBox').textContent = JSON.stringify(diag, null, 2);
+            openModal('bugModal');
+        }
+
+        function copyBugReport() {
+            const desc = document.getElementById('bugDescriptionInput').value.trim() || '(Nessuna descrizione inserita)';
+            const diag = document.getElementById('bugDiagnosticBox').textContent;
+            const fullText = `SEGNALAZIONE PESCASPOT ITALIA\nDescrizione: ${desc}\n\nDiagnostica:\n${diag}`;
+
+            const tempArea = document.createElement('textarea');
+            tempArea.value = fullText;
+            document.body.appendChild(tempArea);
+            tempArea.select();
+            try {
+                document.execCommand('copy');
+                showToast('Report copiato negli appunti! Ora puoi incollarlo.', 'success');
+                closeModal('bugModal');
+            } catch (e) {
+                showToast('Impossibile copiare automaticamente.', 'error');
+            } finally {
+                document.body.removeChild(tempArea);
+            }
+        }
+
+        // =========================================================================
+        // 10. AVVIO APPLICAZIONE
+        // =========================================================================
+        window.addEventListener('DOMContentLoaded', async () => {
+            refreshIcons();
+            initMap();
+
+            if (supabaseClient) {
+                try {
+                    const { data } = await supabaseClient.auth.getSession();
+                    if (data && data.session && data.session.user) {
+                        currentUser = data.session.user;
+                    }
+
+                    supabaseClient.auth.onAuthStateChange((_event, session) => {
+                        currentUser = session && session.user ? session.user : null;
+                        updateAuthHeaderUI();
+                        applyFilters();
+                    });
+                } catch (e) {
+                    console.warn('Verifica sessione Supabase:', e);
+                }
+            }
+
+            updateAuthHeaderUI();
+            await fetchCatchesFromSupabase(false);
+        });
+    </script>
+</body>
+</html>
