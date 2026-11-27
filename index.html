@@ -143,29 +143,29 @@
 <body class="flex flex-col h-full w-full text-slate-100 select-none">
 
     <!-- ===================================================================== -->
-    <!-- TOP NAVBAR RESPONSIVE (Senza sovrapposizioni su mobile)               -->
+    <!-- TOP NAVBAR COMPATTA (Titolo intero + Solo icona utente + 2 righe)     -->
     <!-- ===================================================================== -->
     <header class="h-16 w-full max-w-full bg-slate-900 text-white px-2.5 sm:px-5 flex items-center justify-between gap-2 border-b border-slate-800 shadow-lg z-30 shrink-0">
-        <!-- Left: Hamburger + Brand Logo & Titolo con spazio dedicato -->
-        <div class="flex items-center gap-2 min-w-0 flex-1">
+        <!-- Sinistra: Hamburger + Logo & Titolo "PescaSpot Italia" visibile per intero -->
+        <div class="flex items-center gap-2 min-w-0">
             <button type="button" onclick="toggleSidebar()" aria-label="Apri filtri e menu" class="lg:hidden p-2 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700/80 transition shrink-0">
                 <i data-lucide="menu" class="w-4 h-4 sm:w-5 sm:h-5"></i>
             </button>
 
-            <div class="flex items-center gap-2 min-w-0 flex-1">
+            <div class="flex items-center gap-2 min-w-0">
                 <div class="w-8 h-8 sm:w-9 sm:h-9 rounded-xl bg-gradient-to-br from-sky-500 to-emerald-500 flex items-center justify-center shadow-md shrink-0">
                     <i data-lucide="fish" class="w-4 h-4 sm:w-5 sm:h-5 text-white"></i>
                 </div>
-                <div class="min-w-0 flex-1">
-                    <h1 class="font-extrabold text-[14px] sm:text-lg md:text-xl tracking-tight leading-tight truncate">
+                <div class="min-w-0">
+                    <h1 class="text-[17px] sm:text-xl font-extrabold text-white tracking-tight whitespace-nowrap leading-none">
                         PescaSpot <span class="text-sky-400">Italia</span>
                     </h1>
-                    <p class="text-[11px] text-slate-400 hidden sm:block truncate">Mappa Satellitare & Diario Catture Cloud</p>
+                    <p class="text-[11px] text-slate-400 hidden sm:block mt-0.5 truncate">Mappa Satellitare & Diario Catture Cloud</p>
                 </div>
             </div>
         </div>
 
-        <!-- Center (solo schermi grandi): Statistiche rapide -->
+        <!-- Centro (solo desktop xl): Statistiche rapide -->
         <div class="hidden xl:flex items-center gap-4 text-xs bg-slate-800/90 px-4 py-2 rounded-full border border-slate-700 shrink-0">
             <div class="flex items-center gap-1.5">
                 <i data-lucide="fish" class="w-4 h-4 text-sky-400"></i>
@@ -180,46 +180,40 @@
             </div>
         </div>
 
-        <!-- Right: Sync Cloud + Auth + Nuova Cattura (compatti e shrink-0) -->
+        <!-- Destra: Solo Icona Persona + Pulsante "Aggiungi / Cattura" su 2 righe -->
         <div class="flex items-center gap-1.5 sm:gap-2.5 shrink-0">
-            <!-- Bottone Sincronizzazione Cloud -->
-            <button id="syncCloudBtn" type="button" onclick="fetchCatchesFromSupabase(true)" title="Aggiorna catture dal cloud" aria-label="Aggiorna catture dal cloud" class="p-2 rounded-xl bg-slate-800 hover:bg-slate-700 text-sky-400 border border-slate-700 transition shrink-0">
-                <i id="syncIcon" data-lucide="refresh-cw" class="w-4 h-4"></i>
+            <!-- Pulsante circolare solo icona persona -->
+            <button type="button" id="authHeaderBtn" onclick="handleAuthHeaderClick()" title="Accedi o gestisci profilo" aria-label="Accedi o gestisci profilo" class="relative w-10 h-10 rounded-full bg-slate-800 hover:bg-slate-700 text-sky-300 border border-slate-700 flex items-center justify-center transition active:scale-95 shrink-0">
+                <i data-lucide="user" class="w-5 h-5"></i>
             </button>
 
-            <!-- Slot Autenticazione (Accedi / Utente + Esci) -->
-            <div id="authHeaderSlot" class="flex items-center shrink-0">
-                <button type="button" onclick="openAuthModal('login')" class="px-2.5 py-2 sm:px-3.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-sky-300 border border-slate-700 text-xs font-semibold transition flex items-center gap-1.5 whitespace-nowrap">
-                    <i data-lucide="user" class="w-3.5 h-3.5 shrink-0"></i>
-                    <span>Accedi</span>
-                </button>
-            </div>
-
-            <!-- Bottone Nuova Cattura -->
-            <button type="button" onclick="handleNewCatchTrigger()" class="px-2.5 py-1.5 sm:px-4 sm:py-2 rounded-xl bg-gradient-to-r from-coral-500 to-orange-600 hover:from-coral-600 hover:to-orange-700 text-white font-bold text-[11px] sm:text-xs leading-tight flex items-center gap-1.5 shadow-md transition active:scale-95 shrink-0">
+            <!-- Bottone "Aggiungi / Cattura" su due righe -->
+            <button type="button" onclick="handleNewCatchTrigger()" class="px-2.5 sm:px-3.5 py-1.5 rounded-xl bg-gradient-to-r from-coral-500 to-orange-600 hover:from-coral-600 hover:to-orange-700 text-white shadow-md transition active:scale-95 flex items-center gap-1.5 shrink-0">
                 <i data-lucide="plus-circle" class="w-4 h-4 shrink-0"></i>
-                <span class="hidden xs:inline sm:inline">Nuova</span>
-                <span class="xs:hidden sm:hidden">Cattura</span>
+                <span class="leading-[1.05] text-[11px] font-bold flex flex-col items-center justify-center">
+                    <span>Aggiungi</span>
+                    <span>Cattura</span>
+                </span>
             </button>
         </div>
     </header>
 
     <!-- ===================================================================== -->
-    <!-- MAIN WORKSPACE: SIDEBAR FILTRI + MAPPA SATELLITARE                    -->
+    <!-- MAIN WORKSPACE: SIDEBAR FILTRI + MAPPA SATELLITARE / STRADALE         -->
     <!-- ===================================================================== -->
     <div class="relative flex-1 flex overflow-hidden w-full">
 
         <!-- Backdrop mobile per chiusura drawer -->
         <div id="sidebarBackdrop" onclick="toggleSidebar(false)" class="fixed inset-0 bg-slate-950/70 backdrop-blur-xs z-30 hidden lg:hidden"></div>
 
-        <!-- Sidebar / Drawer Filtri & Info -->
+        <!-- Sidebar / Drawer Filtri, Vista Mappa & Info -->
         <aside id="appSidebar" class="fixed lg:static inset-y-0 left-0 w-80 max-w-[86vw] bg-slate-900 border-r border-slate-800 z-40 transform -translate-x-full lg:translate-x-0 transition-transform duration-200 ease-out flex flex-col justify-between overflow-hidden shadow-2xl lg:shadow-none">
-            <div class="p-4 overflow-y-auto custom-scroll space-y-5 flex-1">
+            <div class="p-4 overflow-y-auto custom-scroll space-y-4 flex-1">
                 <!-- Intestazione mobile drawer -->
                 <div class="flex items-center justify-between lg:hidden pb-2 border-b border-slate-800">
                     <span class="font-bold text-sm text-sky-400 flex items-center gap-2">
                         <i data-lucide="sliders-horizontal" class="w-4 h-4"></i>
-                        Filtri & Strumenti Spot
+                        Filtri & Vista Mappa
                     </span>
                     <button type="button" onclick="toggleSidebar(false)" class="p-1.5 rounded-lg bg-slate-800 text-slate-300 hover:text-white">
                         <i data-lucide="x" class="w-4 h-4"></i>
@@ -235,6 +229,21 @@
                     <div class="bg-slate-800/80 border border-slate-700/80 rounded-2xl p-3">
                         <p class="text-[11px] text-slate-400 font-medium">Spot Raggruppati</p>
                         <p id="sideStatSpots" class="text-xl font-extrabold text-sky-400 mt-0.5">0</p>
+                    </div>
+                </div>
+
+                <!-- Switch Vista Mappa: Satellitare (Nomi IT) / Stradale (Nomi IT) -->
+                <div>
+                    <label class="block text-xs font-semibold text-slate-300 mb-2">Stile Mappa (Nomi in Italiano)</label>
+                    <div class="grid grid-cols-2 gap-1.5 bg-slate-950 p-1 rounded-xl border border-slate-800">
+                        <button type="button" id="sideLayerSatBtn" onclick="setMapLayerMode('satellite')" class="py-2 px-2.5 rounded-lg text-xs font-bold bg-sky-600 text-white shadow transition flex items-center justify-center gap-1.5">
+                            <i data-lucide="satellite" class="w-3.5 h-3.5"></i>
+                            <span>Satellitare</span>
+                        </button>
+                        <button type="button" id="sideLayerRoadBtn" onclick="setMapLayerMode('roadmap')" class="py-2 px-2.5 rounded-lg text-xs font-semibold text-slate-400 hover:text-white transition flex items-center justify-center gap-1.5">
+                            <i data-lucide="map" class="w-3.5 h-3.5"></i>
+                            <span>Stradale</span>
+                        </button>
                     </div>
                 </div>
 
@@ -255,9 +264,11 @@
                 <div>
                     <label for="filterEnvironment" class="block text-xs font-semibold text-slate-300 mb-1.5">Ambiente di Pesca</label>
                     <select id="filterEnvironment" onchange="applyFilters()" class="w-full bg-slate-800 border border-slate-700 rounded-xl px-3 py-2.5 text-xs text-white focus:outline-none focus:border-sky-500">
-                        <option value="">Tutti gli ambienti (Mare, Fiume, Lago)</option>
-                        <option value="Mare">Mare / Costa / Scogliera</option>
-                        <option value="Fiume">Fiume / Torrente</option>
+                        <option value="">Tutti gli ambienti (Mare, Fiume, Lago...)</option>
+                        <option value="Mare">Mare</option>
+                        <option value="Porto/Scogliera">Porto / Scogliera</option>
+                        <option value="Fiume">Fiume</option>
+                        <option value="Torrente">Torrente</option>
                         <option value="Lago">Lago / Bacino</option>
                     </select>
                 </div>
@@ -297,13 +308,21 @@
                         <option value="">Tutte le tecniche</option>
                         <option value="Spinning">Spinning</option>
                         <option value="Surfcasting">Surfcasting</option>
-                        <option value="Bolognese / Inglese">Bolognese / Inglese</option>
-                        <option value="Eging (Cefalopodi)">Eging (Cefalopodi)</option>
-                        <option value="Traina / Bolentino">Traina / Bolentino</option>
-                        <option value="Carpfishing / Feeder">Carpfishing / Feeder</option>
-                        <option value="Pesca a Mosca">Pesca a Mosca</option>
+                        <option value="Bolognese">Bolognese</option>
+                        <option value="Feeder">Feeder</option>
+                        <option value="Ledgering">Ledgering</option>
+                        <option value="Carpfishing">Carpfishing</option>
+                        <option value="Eging">Eging (Cefalopodi)</option>
+                        <option value="Traina">Traina / Bolentino</option>
+                        <option value="Mosca">Pesca a Mosca</option>
                         <option value="Altro">Altro</option>
                     </select>
+                </div>
+
+                <!-- Filtro Specie -->
+                <div>
+                    <label for="filterSpecies" class="block text-xs font-semibold text-slate-300 mb-1.5">Cerca Specie</label>
+                    <input type="text" id="filterSpecies" oninput="applyFilters()" placeholder="Es. Spigola, Orata, Trota..." class="w-full bg-slate-800 border border-slate-700 rounded-xl px-3 py-2 text-xs text-white placeholder-slate-500 focus:outline-none focus:border-sky-500">
                 </div>
 
                 <!-- Reset Filtri -->
@@ -313,13 +332,13 @@
                 </button>
 
                 <!-- Guida rapida & Legenda Cluster -->
-                <div class="bg-slate-800/60 border border-slate-700/70 rounded-2xl p-3.5 space-y-2.5">
+                <div class="bg-slate-800/60 border border-slate-700/70 rounded-2xl p-3.5 space-y-2">
                     <h3 class="text-xs font-bold text-sky-400 uppercase tracking-wider flex items-center gap-1.5">
                         <i data-lucide="info" class="w-3.5 h-3.5"></i>
                         Come funziona la mappa
                     </h3>
                     <p class="text-[11px] text-slate-300 leading-relaxed">
-                        <strong class="text-white">Pressione prolungata</strong> (o tasto destro) su un punto qualsiasi della mappa per inserire una cattura con coordinate GPS già compilate.
+                        <strong class="text-white">Tieni premuto</strong> (o click destro) su un punto qualsiasi per salvare una cattura con le coordinate già impostate.
                     </p>
                     <div class="pt-1 space-y-1.5 text-[11px] text-slate-300">
                         <div class="flex items-center gap-2">
@@ -328,7 +347,7 @@
                         </div>
                         <div class="flex items-center gap-2">
                             <span class="w-3.5 h-3.5 rounded-full bg-amber-500 border border-white inline-block shrink-0"></span>
-                            <span>2 - 4 catture nello spot (clicca per classifica)</span>
+                            <span>2 - 4 catture (clicca per classifica)</span>
                         </div>
                         <div class="flex items-center gap-2">
                             <span class="w-3.5 h-3.5 rounded-full bg-orange-600 border border-white inline-block shrink-0"></span>
@@ -342,7 +361,7 @@
             <div class="p-3.5 border-t border-slate-800 bg-slate-950/60">
                 <button type="button" onclick="openBugModal()" class="w-full py-2.5 px-3 rounded-xl bg-slate-800 hover:bg-slate-700 text-amber-300 border border-slate-700 text-xs font-semibold transition flex items-center justify-center gap-2">
                     <i data-lucide="bug" class="w-4 h-4"></i>
-                    Segnala problema / Feedback
+                    Segnala problema / Bug
                 </button>
             </div>
         </aside>
@@ -359,12 +378,26 @@
                 </div>
             </div>
 
-            <!-- Controlli Rapidi Mappa (In basso a destra: GPS & Vista Italia) -->
-            <div class="absolute bottom-6 right-3 z-20 flex flex-col gap-2">
-                <button type="button" onclick="locateUserOnMap()" title="Centra sulla mia posizione GPS" aria-label="Centra sulla mia posizione GPS" class="w-11 h-11 rounded-2xl bg-slate-900/95 hover:bg-slate-800 text-sky-400 border border-slate-700 shadow-xl flex items-center justify-center transition active:scale-95">
+            <!-- Controlli Mappa in basso a destra: Sync Cloud + Cambio Mappa Satellitare/Stradale + GPS + Bussola -->
+            <div class="absolute bottom-6 right-3 z-20 flex flex-col items-end gap-2">
+                <!-- 1. Pulsante Aggiornamento Cloud -->
+                <button type="button" id="syncCloudBtn" onclick="fetchCatchesFromSupabase(true)" title="Aggiorna catture dal cloud" aria-label="Aggiorna catture dal cloud" class="w-11 h-11 rounded-2xl bg-slate-900/95 hover:bg-slate-800 text-emerald-400 border border-slate-700 shadow-xl flex items-center justify-center transition active:scale-95">
+                    <i id="syncIcon" data-lucide="refresh-cw" class="w-5 h-5"></i>
+                </button>
+
+                <!-- 2. Pulsante Cambio Mappa Satellitare / Stradale -->
+                <button type="button" id="toggleMapLayerBtn" onclick="toggleMapLayerMode()" title="Passa tra Mappa Satellitare e Stradale" aria-label="Passa tra Mappa Satellitare e Stradale" class="h-11 px-3 rounded-2xl bg-slate-900/95 hover:bg-slate-800 text-amber-300 border border-slate-700 shadow-xl flex items-center gap-1.5 transition active:scale-95">
+                    <i id="toggleMapLayerIcon" data-lucide="map" class="w-4 h-4 shrink-0"></i>
+                    <span id="toggleMapLayerLabel" class="text-[11px] font-bold">Mappa</span>
+                </button>
+
+                <!-- 3. Pulsante GPS "La mia posizione" -->
+                <button type="button" id="locateBtn" onclick="locateUserOnMap()" title="Centra sulla mia posizione GPS" aria-label="Centra sulla mia posizione GPS" class="w-11 h-11 rounded-2xl bg-slate-900/95 hover:bg-slate-800 text-sky-400 border border-slate-700 shadow-xl flex items-center justify-center transition active:scale-95">
                     <i data-lucide="crosshair" class="w-5 h-5"></i>
                 </button>
-                <button type="button" onclick="resetItalyView()" title="Vista completa Italia" aria-label="Vista completa Italia" class="w-11 h-11 rounded-2xl bg-slate-900/95 hover:bg-slate-800 text-slate-200 border border-slate-700 shadow-xl flex items-center justify-center transition active:scale-95">
+
+                <!-- 4. Pulsante Bussola / Centra Italia -->
+                <button type="button" id="resetViewBtn" onclick="resetItalyView()" title="Vista completa Italia" aria-label="Vista completa Italia" class="w-11 h-11 rounded-2xl bg-slate-900/95 hover:bg-slate-800 text-slate-200 border border-slate-700 shadow-xl flex items-center justify-center transition active:scale-95">
                     <i data-lucide="compass" class="w-5 h-5"></i>
                 </button>
             </div>
@@ -461,7 +494,9 @@
                         <label class="block text-xs font-semibold text-slate-300 mb-1">Ambiente *</label>
                         <select id="catchEnvironment" required class="w-full bg-slate-800 border border-slate-700 rounded-xl px-3 py-2.5 text-sm text-white focus:outline-none focus:border-sky-500">
                             <option value="Mare">Mare</option>
+                            <option value="Porto/Scogliera">Porto / Scogliera</option>
                             <option value="Fiume">Fiume</option>
+                            <option value="Torrente">Torrente</option>
                             <option value="Lago">Lago</option>
                         </select>
                     </div>
@@ -470,11 +505,13 @@
                         <select id="catchTechnique" required class="w-full bg-slate-800 border border-slate-700 rounded-xl px-3 py-2.5 text-sm text-white focus:outline-none focus:border-sky-500">
                             <option value="Spinning">Spinning</option>
                             <option value="Surfcasting">Surfcasting</option>
-                            <option value="Bolognese / Inglese">Bolognese / Inglese</option>
-                            <option value="Eging (Cefalopodi)">Eging (Cefalopodi)</option>
-                            <option value="Traina / Bolentino">Traina / Bolentino</option>
-                            <option value="Carpfishing / Feeder">Carpfishing / Feeder</option>
-                            <option value="Pesca a Mosca">Pesca a Mosca</option>
+                            <option value="Bolognese">Bolognese</option>
+                            <option value="Feeder">Feeder</option>
+                            <option value="Ledgering">Ledgering</option>
+                            <option value="Carpfishing">Carpfishing</option>
+                            <option value="Eging">Eging (Cefalopodi)</option>
+                            <option value="Traina">Traina / Bolentino</option>
+                            <option value="Mosca">Pesca a Mosca</option>
                             <option value="Altro">Altro</option>
                         </select>
                     </div>
@@ -537,7 +574,7 @@
                     </div>
                 </div>
 
-                <!-- Esca / Artificiale e Note -->
+                <!-- Esca / Artificiale e Data -->
                 <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
                     <div>
                         <label class="block text-xs font-semibold text-slate-300 mb-1">Esca / Artificiale</label>
@@ -585,7 +622,7 @@
     </div>
 
     <!-- ===================================================================== -->
-    <!-- MODALE 3: AUTENTICAZIONE SUPABASE (Accedi / Registrati)               -->
+    <!-- MODALE 3A: AUTENTICAZIONE SUPABASE (Accedi / Registrati)              -->
     <!-- ===================================================================== -->
     <div id="authModal" class="fixed inset-0 bg-slate-950/80 backdrop-blur-xs z-50 hidden items-center justify-center p-4">
         <div class="bg-slate-900 border border-slate-700 rounded-3xl w-full max-w-md p-5 sm:p-6 shadow-2xl space-y-5">
@@ -634,6 +671,43 @@
                     Entra nel Cloud
                 </button>
             </form>
+        </div>
+    </div>
+
+    <!-- ===================================================================== -->
+    <!-- MODALE 3B: PROFILO UTENTE CONNESSO (Aperto dall'icona persona)        -->
+    <!-- ===================================================================== -->
+    <div id="profileModal" class="fixed inset-0 bg-slate-950/80 backdrop-blur-xs z-50 hidden items-center justify-center p-4">
+        <div class="bg-slate-900 border border-slate-700 rounded-3xl w-full max-w-sm p-5 shadow-2xl space-y-4">
+            <div class="flex items-center justify-between">
+                <div class="flex items-center gap-2.5">
+                    <div class="w-10 h-10 rounded-full bg-emerald-500/20 text-emerald-400 border border-emerald-500/40 flex items-center justify-center">
+                        <i data-lucide="user-check" class="w-5 h-5"></i>
+                    </div>
+                    <div class="min-w-0">
+                        <h3 id="profileDisplayName" class="text-base font-extrabold text-white truncate">Pescatore</h3>
+                        <p id="profileEmail" class="text-xs text-slate-400 truncate">email@esempio.it</p>
+                    </div>
+                </div>
+                <button type="button" onclick="closeModal('profileModal')" class="p-2 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-300">
+                    <i data-lucide="x" class="w-4 h-4"></i>
+                </button>
+            </div>
+
+            <div class="bg-slate-800/70 border border-slate-700/80 rounded-2xl p-3 flex items-center justify-between text-xs">
+                <span class="text-slate-400">Le tue catture pubblicate:</span>
+                <strong id="profileUserCatchesCount" class="text-sky-400 font-extrabold text-sm">0</strong>
+            </div>
+
+            <div class="grid grid-cols-2 gap-2.5 pt-1">
+                <button type="button" onclick="closeModal('profileModal'); setOwnerFilter('mine');" class="py-2.5 px-3 rounded-xl bg-slate-800 hover:bg-slate-700 text-sky-300 text-xs font-bold border border-slate-700">
+                    Mostra le mie
+                </button>
+                <button type="button" onclick="closeModal('profileModal'); handleLogout();" class="py-2.5 px-3 rounded-xl bg-red-600/90 hover:bg-red-600 text-white text-xs font-bold flex items-center justify-center gap-1.5">
+                    <i data-lucide="log-out" class="w-3.5 h-3.5"></i>
+                    <span>Esci</span>
+                </button>
+            </div>
         </div>
     </div>
 
@@ -701,7 +775,7 @@
     <div id="toastContainer" class="fixed bottom-5 left-1/2 -translate-x-1/2 z-50 flex flex-col items-center gap-2 pointer-events-none w-[92vw] max-w-md"></div>
 
     <!-- ===================================================================== -->
-    <!-- LOGICA JAVASCRIPT COMPLETA (Supabase + Leaflet + Cluster 200m)        -->
+    <!-- LOGICA JAVASCRIPT COMPLETA (Supabase + Leaflet IT + Cluster 200m)     -->
     <!-- ===================================================================== -->
     <script>
         // =========================================================================
@@ -722,6 +796,10 @@
         }
 
         let map = null;
+        let satelliteGroup = null;
+        let roadmapLayer = null;
+        let currentMapLayerMode = 'satellite'; // 'satellite' | 'roadmap'
+
         let clustersLayerGroup = null;
         let userGpsMarker = null;
         let longPressMarker = null;
@@ -813,7 +891,7 @@
             }
         }
 
-        // Gestione protetta dello spin delle frecce cloud
+        // Gestione protetta dello spin delle frecce cloud (in basso a destra)
         function setCloudSyncSpinning(spinning) {
             const syncIcon = document.getElementById('syncIcon');
             const syncBtn = document.getElementById('syncCloudBtn');
@@ -836,7 +914,7 @@
                 syncBtn.classList.toggle('opacity-70', Boolean(spinning));
             }
 
-            // Timer di sicurezza: ferma sempre lo spin entro 8.5s in ogni circostanza
+            // Fail-safe timeout 9s per garantire lo sblocco visivo in ogni caso
             if (spinning) {
                 syncGuardTimeoutId = setTimeout(() => {
                     isSyncingCatches = false;
@@ -845,12 +923,12 @@
                         syncBtn.disabled = false;
                         syncBtn.classList.remove('opacity-70');
                     }
-                }, 8500);
+                }, 9000);
             }
         }
 
         // =========================================================================
-        // 3. AUTENTICAZIONE UTENTI SUPABASE
+        // 3. AUTENTICAZIONE UTENTI SUPABASE (Solo Icona Persona nell'Header)
         // =========================================================================
         function getUserDisplayName(user) {
             if (!user) return 'Pescatore';
@@ -865,29 +943,35 @@
         }
 
         function updateAuthHeaderUI() {
-            const slot = document.getElementById('authHeaderSlot');
-            if (!slot) return;
+            const btn = document.getElementById('authHeaderBtn');
+            if (!btn) return;
 
             if (currentUser) {
-                const name = escapeHtml(getUserDisplayName(currentUser));
-                slot.innerHTML = `
-                    <div class="flex items-center gap-1.5 bg-slate-800 border border-slate-700 rounded-xl pl-2 pr-1 py-1 shrink-0">
-                        <span class="w-2 h-2 rounded-full bg-emerald-400 shrink-0"></span>
-                        <span class="text-[11px] sm:text-xs font-semibold text-sky-300 max-w-[68px] sm:max-w-[120px] truncate">${name}</span>
-                        <button type="button" onclick="handleLogout()" title="Esci dall'account" class="px-1.5 sm:px-2 py-0.5 sm:py-1 rounded-lg bg-slate-700 hover:bg-red-900/80 text-slate-200 hover:text-white text-[10px] sm:text-[11px] font-semibold transition shrink-0">
-                            Esci
-                        </button>
-                    </div>
+                const name = getUserDisplayName(currentUser);
+                btn.title = `Profilo: ${name}`;
+                btn.className = 'relative w-10 h-10 rounded-full bg-emerald-500/20 hover:bg-emerald-500/30 text-emerald-300 border border-emerald-500/60 flex items-center justify-center transition active:scale-95 shrink-0';
+                btn.innerHTML = `
+                    <i data-lucide="user-check" class="w-5 h-5"></i>
+                    <span class="absolute top-0.5 right-0.5 w-2.5 h-2.5 rounded-full bg-emerald-400 border-2 border-slate-900"></span>
                 `;
             } else {
-                slot.innerHTML = `
-                    <button type="button" onclick="openAuthModal('login')" class="px-2.5 py-2 sm:px-3.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-sky-300 border border-slate-700 text-xs font-semibold transition flex items-center gap-1.5 whitespace-nowrap">
-                        <i data-lucide="user" class="w-3.5 h-3.5 shrink-0"></i>
-                        <span>Accedi</span>
-                    </button>
-                `;
+                btn.title = 'Accedi o Registrati';
+                btn.className = 'relative w-10 h-10 rounded-full bg-slate-800 hover:bg-slate-700 text-sky-300 border border-slate-700 flex items-center justify-center transition active:scale-95 shrink-0';
+                btn.innerHTML = `<i data-lucide="user" class="w-5 h-5"></i>`;
             }
             refreshIcons();
+        }
+
+        function handleAuthHeaderClick() {
+            if (currentUser) {
+                document.getElementById('profileDisplayName').textContent = getUserDisplayName(currentUser);
+                document.getElementById('profileEmail').textContent = currentUser.email || '';
+                const myCount = catches.filter((c) => c.user_id === currentUser.id).length;
+                document.getElementById('profileUserCatchesCount').textContent = myCount;
+                openModal('profileModal');
+            } else {
+                openAuthModal('login');
+            }
         }
 
         function openAuthModal(mode = 'login') {
@@ -999,7 +1083,7 @@
         }
 
         // =========================================================================
-        // 4. INIZIALIZZAZIONE MAPPA SATELLITARE LEAFLET + LONG-PRESS
+        // 4. MAPPA LEAFLET CON ETICHETTE IN ITALIANO + SELETTORE SATELLITE/STRADALE
         // =========================================================================
         function initMap() {
             map = L.map('map', {
@@ -1010,22 +1094,95 @@
 
             L.control.zoom({ position: 'topright' }).addTo(map);
 
-            // Base Satellitare Esri World Imagery
-            L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}', {
-                attribution: 'Tiles &copy; Esri &mdash; Source: Esri, Maxar, Earthstar Geographics',
-                maxZoom: 19
-            }).addTo(map);
+            // Pane dedicato alle etichette in italiano sopra al satellite ma sotto i marker
+            map.createPane('italianLabelsPane');
+            map.getPane('italianLabelsPane').style.zIndex = 250;
+            map.getPane('italianLabelsPane').style.pointerEvents = 'none';
 
-            // Overlay Confini e Toponimi (etichette località/strade/acque)
-            L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/Reference/World_Boundaries_and_Places/MapServer/tile/{z}/{y}/{x}', {
-                maxZoom: 19,
-                opacity: 0.9
-            }).addTo(map);
+            // Vista 1: Satellitare + Etichette Città, Strade e Acque in ITALIANO (hl=it&gl=IT)
+            const satBaseLayer = L.tileLayer('https://mt1.google.com/vt/lyrs=s&x={x}&y={y}&z={z}', {
+                attribution: '&copy; Google Satellite',
+                maxZoom: 20,
+                zIndex: 1
+            });
+
+            const satLabelsItLayer = L.tileLayer('https://mt1.google.com/vt/lyrs=h&hl=it&gl=IT&x={x}&y={y}&z={z}', {
+                maxZoom: 20,
+                pane: 'italianLabelsPane'
+            });
+
+            satelliteGroup = L.layerGroup([satBaseLayer, satLabelsItLayer]);
+
+            // Vista 2: Mappa Stradale / Non Satellitare con nomi in ITALIANO (hl=it&gl=IT)
+            roadmapLayer = L.tileLayer('https://mt1.google.com/vt/lyrs=m&hl=it&gl=IT&x={x}&y={y}&z={z}', {
+                attribution: '&copy; Google Maps Italia',
+                maxZoom: 20,
+                zIndex: 1
+            });
+
+            // Attiva vista default satellitare con nomi in italiano
+            satelliteGroup.addTo(map);
+            updateMapLayerButtonsUI();
 
             clustersLayerGroup = L.layerGroup().addTo(map);
 
             // Supporto Pressione Prolungata (Touch & Mouse) + Tasto destro
             setupMapLongPress();
+        }
+
+        function setMapLayerMode(mode) {
+            if (!map || !satelliteGroup || !roadmapLayer) return;
+            if (mode !== 'satellite' && mode !== 'roadmap') return;
+
+            currentMapLayerMode = mode;
+
+            if (mode === 'satellite') {
+                if (map.hasLayer(roadmapLayer)) map.removeLayer(roadmapLayer);
+                if (!map.hasLayer(satelliteGroup)) satelliteGroup.addTo(map);
+            } else {
+                if (map.hasLayer(satelliteGroup)) map.removeLayer(satelliteGroup);
+                if (!map.hasLayer(roadmapLayer)) roadmapLayer.addTo(map);
+            }
+
+            updateMapLayerButtonsUI();
+        }
+
+        function toggleMapLayerMode() {
+            const nextMode = currentMapLayerMode === 'satellite' ? 'roadmap' : 'satellite';
+            setMapLayerMode(nextMode);
+            showToast(
+                nextMode === 'satellite'
+                    ? 'Vista Satellitare (nomi in italiano)'
+                    : 'Vista Mappa Stradale (nomi in italiano)'
+            );
+        }
+
+        function updateMapLayerButtonsUI() {
+            const mapBtnLabel = document.getElementById('toggleMapLayerLabel');
+            const mapBtnIcon = document.getElementById('toggleMapLayerIcon');
+            const sideSatBtn = document.getElementById('sideLayerSatBtn');
+            const sideRoadBtn = document.getElementById('sideLayerRoadBtn');
+
+            if (currentMapLayerMode === 'satellite') {
+                // In modalità Satellitare, il tasto rapido mostra cosa attiverà al clic ("Mappa")
+                if (mapBtnLabel) mapBtnLabel.textContent = 'Mappa';
+                if (mapBtnIcon) mapBtnIcon.setAttribute('data-lucide', 'map');
+
+                if (sideSatBtn && sideRoadBtn) {
+                    sideSatBtn.className = 'py-2 px-2.5 rounded-lg text-xs font-bold bg-sky-600 text-white shadow transition flex items-center justify-center gap-1.5';
+                    sideRoadBtn.className = 'py-2 px-2.5 rounded-lg text-xs font-semibold text-slate-400 hover:text-white transition flex items-center justify-center gap-1.5';
+                }
+            } else {
+                // In modalità Stradale, il tasto rapido mostra "Satellite" per tornare alla foto aerea
+                if (mapBtnLabel) mapBtnLabel.textContent = 'Satellite';
+                if (mapBtnIcon) mapBtnIcon.setAttribute('data-lucide', 'satellite');
+
+                if (sideSatBtn && sideRoadBtn) {
+                    sideRoadBtn.className = 'py-2 px-2.5 rounded-lg text-xs font-bold bg-sky-600 text-white shadow transition flex items-center justify-center gap-1.5';
+                    sideSatBtn.className = 'py-2 px-2.5 rounded-lg text-xs font-semibold text-slate-400 hover:text-white transition flex items-center justify-center gap-1.5';
+                }
+            }
+            refreshIcons();
         }
 
         function setupMapLongPress() {
@@ -1044,7 +1201,7 @@
                 startPoint = containerPoint;
                 pressTimer = setTimeout(() => {
                     triggerSpotSelectionOnMap(latlng);
-                }, 620);
+                }, 600);
             };
 
             map.on('mousedown', (e) => {
@@ -1060,7 +1217,6 @@
 
             map.on('mouseup dragstart zoomstart movestart', cancelPress);
 
-            // Supporto nativo touch su container mappa
             const mapContainer = map.getContainer();
             mapContainer.addEventListener('touchstart', (e) => {
                 if (e.touches.length !== 1) {
@@ -1086,7 +1242,6 @@
             mapContainer.addEventListener('touchend', cancelPress, { passive: true });
             mapContainer.addEventListener('touchcancel', cancelPress, { passive: true });
 
-            // Tasto destro desktop
             map.on('contextmenu', (e) => {
                 triggerSpotSelectionOnMap(e.latlng);
             });
@@ -1161,7 +1316,7 @@
             const controller = typeof AbortController !== 'undefined' ? new AbortController() : null;
             const timeoutId = setTimeout(() => {
                 if (controller) controller.abort();
-            }, 8000);
+            }, 8500);
 
             try {
                 let query = supabaseClient
@@ -1241,6 +1396,7 @@
             document.getElementById('filterEnvironment').value = '';
             document.getElementById('filterRegion').value = '';
             document.getElementById('filterTechnique').value = '';
+            document.getElementById('filterSpecies').value = '';
             setOwnerFilter('all');
         }
 
@@ -1248,12 +1404,14 @@
             const env = document.getElementById('filterEnvironment').value;
             const region = document.getElementById('filterRegion').value;
             const tech = document.getElementById('filterTechnique').value;
+            const speciesQuery = (document.getElementById('filterSpecies').value || '').trim().toLowerCase();
 
             filteredCatches = catches.filter((item) => {
                 if (ownerFilterMode === 'mine' && currentUser && item.user_id !== currentUser.id) return false;
                 if (env && item.environment !== env) return false;
                 if (region && item.region !== region) return false;
                 if (tech && item.technique !== tech) return false;
+                if (speciesQuery && !String(item.species || '').toLowerCase().includes(speciesQuery)) return false;
                 return Number.isFinite(Number(item.lat)) && Number.isFinite(Number(item.lng));
             });
 
@@ -1273,7 +1431,6 @@
         }
 
         function buildSpotClusters(items) {
-            // Ordina per peso decrescente così il perno del cluster è il Record dello Spot
             const sorted = [...items].sort((a, b) => Number(b.weight_kg || 0) - Number(a.weight_kg || 0));
             const clusters = [];
 
@@ -1312,7 +1469,6 @@
 
             const clusters = buildSpotClusters(filteredCatches);
 
-            // Aggiorna contatori UI
             document.getElementById('headerStatCatches').textContent = filteredCatches.length;
             document.getElementById('headerStatSpots').textContent = clusters.length;
             document.getElementById('sideStatCatches').textContent = filteredCatches.length;
@@ -1329,13 +1485,13 @@
                 activeClustersMap[cluster.id] = cluster;
                 const count = cluster.catches.length;
 
-                let bgColor = '#0ea5e9'; // 1 cattura (sky-500)
+                let bgColor = '#0ea5e9';
                 let size = 34;
                 if (count >= 5) {
-                    bgColor = '#ea580c'; // 5+ catture (orange-600)
+                    bgColor = '#ea580c';
                     size = 44;
                 } else if (count >= 2) {
-                    bgColor = '#f59e0b'; // 2-4 catture (amber-500)
+                    bgColor = '#f59e0b';
                     size = 38;
                 }
 
@@ -1385,6 +1541,7 @@
                 const isRecord = idx === 0;
                 const isMine = currentUser && item.user_id === currentUser.id;
                 const weightFormatted = Number(item.weight_kg || 0).toFixed(2);
+                const fishermanLabel = item.fisherman_name || item.author_name || 'Pescatore';
                 const dateStr = item.caught_at
                     ? new Date(item.caught_at).toLocaleDateString('it-IT', { day: '2-digit', month: 'short', year: 'numeric' })
                     : '';
@@ -1431,7 +1588,7 @@
                         ${item.notes ? `<p class="text-xs text-slate-300 bg-slate-950/60 rounded-xl p-2.5 border border-slate-800">${escapeHtml(item.notes)}</p>` : ''}
 
                         <div class="pt-1 border-t border-slate-700/60 flex items-center justify-between text-[11px] text-slate-400">
-                            <span>Pescatore: <strong class="text-slate-200">${escapeHtml(item.author_name)}</strong> ${dateStr ? `• ${dateStr}` : ''}</span>
+                            <span>Pescatore: <strong class="text-slate-200">${escapeHtml(fishermanLabel)}</strong> ${dateStr ? `• ${dateStr}` : ''}</span>
                             ${isMine ? `
                                 <button type="button" onclick="askDeleteCatch('${escapeHtml(item.id)}')" class="text-red-400 hover:text-red-300 font-semibold flex items-center gap-1">
                                     <i data-lucide="trash-2" class="w-3.5 h-3.5"></i>
@@ -1459,7 +1616,6 @@
             document.getElementById('newCatchForm').reset();
             clearCatchPhoto();
 
-            // Imposta data/ora corrente nel formato datetime-local
             const now = new Date();
             now.setMinutes(now.getMinutes() - now.getTimezoneOffset());
             document.getElementById('catchDate').value = now.toISOString().slice(0, 16);
@@ -1514,7 +1670,6 @@
             document.getElementById('photoPreviewContainer').classList.add('hidden');
         }
 
-        // Compressione immagine lato client su Canvas (max 1200px, JPEG 0.8)
         function compressImageToBlob(file, maxDimension = 1200, quality = 0.8) {
             return new Promise((resolve, reject) => {
                 const reader = new FileReader();
@@ -1598,10 +1753,11 @@
 
                 const caughtAtRaw = document.getElementById('catchDate').value;
                 const lengthRaw = document.getElementById('catchLength').value;
+                const displayName = getUserDisplayName(currentUser);
 
                 const payload = {
                     user_id: currentUser.id,
-                    author_name: getUserDisplayName(currentUser),
+                    author_name: displayName,
                     species: document.getElementById('catchSpecies').value.trim(),
                     weight_kg: parseFloat(document.getElementById('catchWeight').value),
                     length_cm: lengthRaw ? parseFloat(lengthRaw) : null,
@@ -1675,6 +1831,7 @@
             const diag = {
                 app: 'PescaSpot Italia Cloud PWA',
                 timestamp: new Date().toISOString(),
+                mapLayer: currentMapLayerMode,
                 userLoggedIn: Boolean(currentUser),
                 catchesLoaded: catches.length,
                 viewport: `${window.innerWidth}x${window.innerHeight}`,
